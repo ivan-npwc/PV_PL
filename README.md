@@ -1,4 +1,12 @@
-Seal Monitoring System - LRG Processing Pipeline Documentation
+
+The system includes an interactive R Shiny application that provides a user-friendly interface for the seal monitoring pipeline. The GUI allows non-technical users to:
+
+Upload and preprocess drone imagery
+Run seal detection and segmentation
+Visualize 3D point clouds and meshes
+Export analysis results
+
+Monitor processing progress
 ![2025-06-05_15-12-49](https://github.com/user-attachments/assets/03e74907-3c2a-4411-84af-8618d2531f14)
 
 The LRG (Phoca largha and Phoca vitulina) processing pipeline is a specialized system designed to analyze drone imagery and 3D scans of seal populations in a marine environment. The system combines computer vision, deep learning, and 3D modeling techniques to detect, segment, and measure individual seals for ecological research and population monitoring. The primary objectives of the pipeline include automated seal detection in aerial imagery, 3D reconstruction of seal bodies from point cloud data, volume estimation, and geospatial mapping of seal distributions.
