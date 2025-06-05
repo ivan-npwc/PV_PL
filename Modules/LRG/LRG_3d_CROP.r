@@ -127,7 +127,7 @@ watertight_mesh <- vcgQEdecim(mesh3, percent = 0.3)  # Simplify by 70%
 vcgVolume(watertight_mesh)  # Calculate volume of the mesh
 
 # Additional visualization (commented out)
-# shade3d(mesh, color = "gray", alpha = 0.4)
+# shade3d(watertight_mesh, color = "gray", alpha = 0.4)
 # bbox_lines <- rgl::bbox3d(color = "gray")
 # points3d(inside_points, col = "red", size = 2)
    

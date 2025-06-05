@@ -38,10 +38,14 @@ navbarPage(actionLink('ResetSetting',   label=paste0("INPUT:___", labelInput), s
 														 hr(),
 				 fluidRow(column(width = 4,textInput("X", "X:", value="3.221493e-08"))),  #0.00000006442986
 				  fluidRow(column(width = 4,textInput("Y", "Y:", value="1.751848e-08"))),  #0.00000003503696
+														############
+			fluidRow(column(3, conditionalPanel("input.Species=='LRG'",
+                                    checkboxInput("UseAllHauloutImages", "Use All Haulout Images", value=FALSE)
+                                                                 ))),
 														############										   
 			     fluidRow(column(width = 11,selectInput('Species', 'Species', width="200px",multiple = F,
                                                          c(
-														   "ANTUR"="ANT",
+														   "ANTUR"="LRG",
 														   "LARGHA"="LRG"),
 													          selected=listTMP$Species
                  )),
@@ -50,15 +54,17 @@ navbarPage(actionLink('ResetSetting',   label=paste0("INPUT:___", labelInput), s
 				          column(width = 4, actionButton('Up', 'Up', width="200px"))
                            ),
                 
-                ))),
+                )),
 #######################################################################################################
 tabPanel("Settings",	 
 		hr(), 
-         fluidRow(column(width = 12, actionLink('System_data',label= paste0("System_data:  ", System_data), style = "font-size:12px;"))),
-         hr(),
-		  fluidRow(column(width = 12,actionLink('LRG_pth',label= paste0("'UNET SEGMENTATION LARGHA:  ", LRG_pth), style = "font-size:12px;"))),
+         fluidRow(column(width = 4, actionLink('System_data',label= paste0("System_data:  ", System_data), style = "font-size:12px;"))),
+        
+		  fluidRow(column(width = 12,actionLink('LRG_pth',label= paste0("LARGHA:  ", LRG_pth), style = "font-size:12px;"))),
 		  hr(),
-		 fluidRow(column(width = 12,actionLink('LRGH_MSRMNTS',label= paste0("VGG16 LRGH MSRMNTS:  ", LRGH_MSRMNTS), style = "font-size:12px;"))),
+		 fluidRow(column(width = 12,actionLink('LRGH_MSRMNTS',label= paste0("LRGH_MSRMNTS:  ", LRGH_MSRMNTS), style = "font-size:12px;"))),
+		  hr(),  
+		   fluidRow(column(width = 12,actionLink('DirModelsCheck',label= paste0("DirModelsCheck:  ", DirModelsCheck), style = "font-size:12px;"))),
 		 hr(),
 		 checkboxInput("DarkTheme", "DarkTheme", value=DarkTheme),
 		  hr(),
