@@ -68,7 +68,7 @@ Troubleshooting
 2. Mesh holes in 3D models: Increase point density or use manual hole-filling.
 3. False positives in detection: Retrain U-Net with additional negative samples.
 
-   Shiny Application Overview
+
 The system includes an interactive R Shiny web application that provides a user-friendly interface for the LRG seal monitoring pipeline.
 
 The GUI allows non-technical users to:
