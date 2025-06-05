@@ -1,165 +1,73 @@
-# PV_PL
-# 3D Seal Body Processing Code
-# This code processes 3D point cloud data of seal rookeries to:
+Here's a comprehensive documentation for the seal monitoring system with a focus on the LRG (Larga Seal) processing pipeline:
 
-*Isolate individual seal bodies using polygon boundaries
-*Reconstruct 3D meshes of seal bodies
-*Calculate seal body volumes
-#Create watertight 3D models for analysis
+Seal Monitoring System - LRG Processing Pipeline Documentation
+System Overview
+This specialized pipeline processes drone imagery and 3D scans of Larga seal populations to:
 
-#Input Requirements
+Detect and segment individual seals using deep learning
 
-#Polygon Data (.kml files):
-#Boundary polygons outlining individual seals
-#Path: labelInput\\Predict\\SpP_LRG_{date}.kml
-#3D Point Cloud (.ply files):
+Create 3D models from point cloud data
 
-#OPP scan of entire rookery
-#Created in Agisoft Metashape
+Calculate seal body volumes
 
-#Path: labelInput\\{date}_3D_gps.ply
+Generate geospatial outputs for population analysis
 
-#Coordinate Parameters:
-#UTM CRS (32610 = Zone 10N)
-#Local offsets (E, N, A) for coordinate conversion
+Core Components
+Image Processing
 
-#Processing Pipeline
-#1. Setup & Initialization
+02_ERODE MASK.r: Preprocessing for training masks
 
-#r
-library(Rvcg)        # 3D mesh operations
-library(rgl)         # 3D visualization
-library(sf)          # Spatial data handling
-# ... other libraries ...
+Applies morphological operations (erosion) to segmentation masks
 
-crs <- 32610         # UTM Zone 10N
-E <- 430000; N <- 5451000 # Coordinate offsets
-labelInput <- "D:\\PV_DB\\2023_H0052A_OPP\\..." 
+Processes mask images in bulk from specified directories
 
-#Loads required geospatial/3D processing libraries
-#Defines coordinate system and translation offsets
+3D Processing
 
-2. Data Preparation
-#r
-poly_sf <- st_read(PolPth) %>% st_transform(crs)
-site_3d_gps <- vcgImport(site_3d_gps_pth)
+LRG_3d_CROP.r: Main 3D processing script
 
-#Reads seal boundary polygon (KML → SF object)
-#Imports 3D point cloud (PLY format)
-#Transforms both to common UTM coordinate system
+Imports and processes 3D point clouds (.ply)
 
-#3. Coordinate Conversion
-#r
-site_3d_crs$vb[1,] <- site_3d_crs$vb[1,] + E  # Easting
-site_3d_crs$vb[2,] <- site_3d_crs$vb[2,] + N  # Northing
-vertices_crs <- st_as_sf(...)  # Convert to spatial points
+Creates watertight 3D meshes using ball pivoting algorithm
 
-#Converts GPS coordinates to local grid system
-#Creates spatial points for geometric operations
+Calculates seal body volumes
 
-#4. Point Filtering
-#r
-inside <- st_intersects(vertices_crs, singlePol)
-points_inside <- vertices_crs[inside,]
+Visualizes results with rgl
 
-#Filters 3D points to keep only those inside seal polygon
-#Uses spatial intersection between points and polygon
+Deep Learning Prediction
 
-#5. Height-Based Filtering
-#r
+LRG_PREDICT.r: Regression model for seal measurements
 
-#MedianLevel <- median(coords[,3])
-#points_cut <- coords[coords[,3] > (MedianLevel-1) & ...]
-#Calculates median elevation of seal body
-#Removes ground points (±1 meter from median elevation)
-#6. Mesh Reconstruction
-#r
+LRG_Predict_tf2.r: UNet-based segmentation
 
-mesh1 <- vcgBallPivoting(points_cut, radius = 0.05)
-mesh2 <- vcgUpdateNormals(mesh1)
+Batch processing of images (default 32)
 
-#Creates initial mesh using ball pivoting algorithm
-#Updates vertex normals for proper lighting/shading
-#7. Boundary Processing
-#r
+Custom dice coefficient metric
 
-boundary_edges <- vcgBorder(mesh2)[[1]]
-alpha_shape <- ashape3d(border_vertices, alpha = 0.4)
+Mask creation and blob analysis
 
-#Extracts mesh boundary edges
-#Creates alpha shape (concave hull) to define seal base
-#8. Bottom Surface Creation
-#r
+Blob Processing
 
-distances <- vcgClost(mesh2, closed_mesh, sign=TRUE)
-botton <- vcgSmooth(distances, "HClaplace", iteration=10)
+LRG_BlobsToPolygons.r: Converts blob detections to polygons
 
-#Computes signed distances to alpha shape
-#Generates smooth bottom surface using Laplacian smoothing
-#9. Seal Body Extraction
-#r
+LRG_SplitPredByBlob.r: Splits predictions by individual blobs
 
-polygon <- st_convex_hull(st_union(botton_crs))
-pointsinside <- points_inside[st_intersects(...),]
-seal <- vcgBallPivoting(coords, radius=0.05)
+Filters by size thresholds
 
-#Creates convex hull of bottom surface
-#Filters points inside convex hull
-#Generates top mesh of seal body
+Extracts individual seal images
 
-#10. Watertight Model Creation
-#r
+Auxiliary Scripts
 
-closed_seal <- mergeMeshes(botton, seal2)
-watertight_mesh <- vcgQEdecim(mesh3, percent=0.3)
-volume <- vcgVolume(watertight_mesh)
+MaskCreateFromOutlines.r: Creates training masks from manual outlines
 
-#Merges top and bottom mesh components
-#Simplifies mesh (70% reduction) while preserving form
-#Calculates seal body volume in cubic meters
-#Outputs
-#3D Mesh Models:
-#Visualizable in RGL viewer
-#Watertight seal body reconstruction
-#Volume Measurement:
-#Quantitative seal body volume
-#Accessible via vcgVolume() output
-#Intermediate Visualizations:
-![image](https://github.com/user-attachments/assets/a5c6e853-3108-4b1e-9537-09a2787892d4)
+Various utility functions for coordinate conversion and visualization
 
-# Red bottom surface +  seal body
-#Height-filtered point cloud
-#Mesh boundaries and alpha shapes
+Workflow
+Input Requirements
 
-#Key Parameters for Tuning
+Drone orthophotos
 
-#radius = 0.05 - Ball pivoting radius (adjust for point density)
-#alpha = 0.4 - Alpha shape concavity (higher = smoother)
-#percent = 0.3 - Mesh simplification percentage
-#iteration = 10 - Smoothing intensity
+3D point clouds (.ply format) from Agisoft Metashape
 
-#Dependencies
-#r
-#install.packages(c("Rvcg", "rgl", "sf", "Morpho", 
-                   "XML", "dplyr", "dbscan", 
-                   "alphashape3d", "EBImage"))
-#Usage Example
-#r
-# Set input directory and offsets
-labelInput <- "path/to/your/rookery_data"
-E <- 432100; N <- 5453000  # Site-specific offsets
+KML polygon files for seal boundaries
 
-# Run processing pipeline
-source("seal_processing.R")
-
-# View results
-shade3d(watertight_mesh, col="gray")
-print(paste("Seal volume:", volume, "m³"))
-
-
-#Notes
-#Coordinate offsets (E, N) must match your drone survey data
-#Polygon files should be created prior to processing
-#Optimal parameters vary with point cloud density (adjust radius/alpha)
-#Visual inspection of intermediate results is recommended
-#Output volumes are in cubic meters (convert as needed)
+Coordinate reference parameters (UTM Zone 10N)
