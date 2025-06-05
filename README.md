@@ -125,6 +125,7 @@ volume <- vcgVolume(watertight_mesh)
 #Quantitative seal body volume
 #Accessible via vcgVolume() output
 #Intermediate Visualizations:
+![image](https://github.com/user-attachments/assets/a5c6e853-3108-4b1e-9537-09a2787892d4)
 
 # Red bottom surface +  seal body
 #Height-filtered point cloud
