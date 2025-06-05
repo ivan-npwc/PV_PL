@@ -1,7 +1,7 @@
 Seal Monitoring System - LRG Processing Pipeline Documentation
 
 System Overview
-The LRG (Larga Seal) processing pipeline is a specialized system designed to analyze drone imagery and 3D scans of seal populations in a marine environment. The system combines computer vision, deep learning, and 3D modeling techniques to detect, segment, and measure individual seals for ecological research and population monitoring. The primary objectives of the pipeline include automated seal detection in aerial imagery, 3D reconstruction of seal bodies from point cloud data, volume estimation, and geospatial mapping of seal distributions.
+The LRG (Phoca largha and Phoca vitulina) processing pipeline is a specialized system designed to analyze drone imagery and 3D scans of seal populations in a marine environment. The system combines computer vision, deep learning, and 3D modeling techniques to detect, segment, and measure individual seals for ecological research and population monitoring. The primary objectives of the pipeline include automated seal detection in aerial imagery, 3D reconstruction of seal bodies from point cloud data, volume estimation, and geospatial mapping of seal distributions.
 
 Core Components
 
@@ -73,9 +73,6 @@ Libraries: TensorFlow 2, OpenCV, RGL, plyr, sf (for geospatial operations).
 Hardware: GPU acceleration recommended for deep learning inference.
 
 Notes
-
-Default parameters assume Arctic fieldwork conditions (e.g., snow/ice background).
-
 Volume calculations assume seals are in a relaxed, prone position.
 
 For large datasets, batch processing can be distributed across multiple nodes.
@@ -85,5 +82,4 @@ Troubleshooting
 Erosion artifacts in masks: Adjust kernel size in 02_ERODE_MASK.r.
 
 Mesh holes in 3D models: Increase point density or use manual hole-filling.
-
 False positives in detection: Retrain U-Net with additional negative samples.
