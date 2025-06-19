@@ -9,7 +9,6 @@ library(dplyr)       # For data manipulation
 library(dbscan)      # For density-based clustering
 library(alphashape3d) # For alpha shape calculations
 #library(EBImage)     # For image processing
-
 # Set coordinate reference system (CRS) and offset values
 crs <- 32610         # UTM zone 10N coordinate system
 E <- 430000          # Easting offset
@@ -33,7 +32,7 @@ site_3d_gps_pth <- paste0(labelInput, "\\", date1, "_3D_gps.ply")
 
 ########################################################################
 # Read and process data
-
+seal_cut=function(PolPth,site_3d_gps_pth){
 # Read polygon from KML file and transform to target CRS
 poly_sf <- st_read(PolPth)
 poly_sf <- poly_sf %>% st_transform(crs)
@@ -56,10 +55,8 @@ vertices_crs <- st_as_sf(data.frame(x = site_3d_crs$vb[1,],
 singlePol <- poly_sf$geometry[1]
 inside <- st_intersects(vertices_crs, singlePol, sparse = FALSE)
 points_inside <- vertices_crs[inside,]
-
 #######################
 # Process points inside polygon
-
 # Extract coordinates and convert to local system
 coords <- st_coordinates(points_inside)
 coords[,1] <- coords[,1] - E  # Convert to local Easting
@@ -67,32 +64,392 @@ coords[,2] <- coords[,2] - N  # Convert to local Northing
 
 # Calculate median height level and define upper/lower bounds
 MedianLevel <- median(coords[,3]) 
-UpLevel <- MedianLevel + 1
-DownLevel <- MedianLevel - 1
+UpLevel <- MedianLevel + 0.5
+DownLevel <- MedianLevel - 0.5
 
 # Filter points within height range
 points_cut <- coords[coords[,3] > DownLevel, ]  # Remove points below lower bound
 points_cut <- points_cut[points_cut[,3] < UpLevel, ]  # Remove points above upper bound
 
 # Create mesh using ball pivoting algorithm
-mesh1 <- vcgBallPivoting(points_cut, radius = 0.05)
-mesh2 <- vcgUpdateNormals(mesh1)  # Update mesh normals
+mesh <- vcgBallPivoting(points_cut, radius = 0.05)
+return(mesh)
+}
+#####################################################################
+pl=function(mesh,col=1,alpha = 0.5){shade3d(mesh, color=col, alpha=alpha); bbox_lines <- rgl::bbox3d(color = "gray")}
+##############################################################################  mesh_surface_reconstract
+   mesh_surface_reconstract_alpha=function(mesh){
+   vertices <- vert2points(mesh)
+   bbox <- apply(vertices, 2, range)  # Минимальные и максимальные координаты
+   # Генерация случайных точек в bounding box
+   n_points <- 100000  # Желаемое количество точек
+  random_points <- matrix(
+  runif(n_points * 3, min = bbox[1, ], max = bbox[2, ]),
+  ncol = 3,
+  byrow = TRUE
+   )
+ # Находим ближайшие точки на меше и их расстояния (с учетом знака)
+  closest <- vcgClostKD(
+  x = random_points,
+  mesh = mesh,
+  sign = TRUE,          # Возвращает знаковое расстояние
+  threads = 4          # Используем 4 потока для ускорения
+  )
+ 
+       inside_points <- random_points[closest$quality > -0.01 &  closest$quality < 0.01 , ]
+       reconstructed_mesh <- ashape3d(inside_points, alpha = 0.1)
+	   reconstructed_mesh <- as.mesh3d(reconstructed_mesh) 
+	   return(reconstructed_mesh)
+}
+###############################################################################  CREATE ALPHA SHAPE 
+   # Extract boundary edges and vertices
+   mesh_to_alpha_botton=function(mesh, alpha = 0.4){
+   boundary_edges <- Rvcg::vcgBorder(mesh)[[1]]
+   border_vertices <- vert2points(mesh)[boundary_edges, ]
+   clusters <- dbscan(border_vertices, eps = 0.1, minPts = 3)$cluster
+   # Считаем размер каждого кластера
+   cluster_sizes <- table(clusters)
+   # Исключаем самый большой кластер (внешний край)
+    main_cluster <- as.integer(names(which.max(cluster_sizes)))
+     small_holes <- clusters != main_cluster & clusters != 0  # 0 — шум в DBSCAN
+    br_vr=border_vertices[!small_holes,]
+   # Create alpha shape from boundary vertices
+   alpha_shape <- ashape3d(br_vr, alpha =alpha)
+   alpha_shape <- as.mesh3d(alpha_shape)
+return(alpha_shape)
+}
+######################################################################################   ALPHA SHAPE TO SURFACE
+  alfa_to_surface=function(alpha_shape){
+vertices <- t(alpha_shape$vb[1:3, ])  # Nx3 матрица координат
+### 2. Находим минимальные Z для каждой (X, Y)
+# Округляем X и Y до 3 знаков, чтобы избежать шума
+rounded_xy <- round(vertices[, 1:2], digits = 3)
+# Группируем по (X, Y) и находим минимальный Z в каждой группе
+unique_xy <- unique(rounded_xy)
+min_z_points <- matrix(nrow = nrow(unique_xy), ncol = 3)
+for (i in 1:nrow(unique_xy)) {
+  x <- unique_xy[i, 1]
+  y <- unique_xy[i, 2]
+  mask <- (rounded_xy[, 1] == x) & (rounded_xy[, 2] == y)
+  min_z <- min(vertices[mask, 3])
+  min_z_points[i, ] <- c(x, y, min_z)
+}
+### 3. Строим новую поверхность (триангуляция Делоне)
+delaunay_tri <- delaunayn(min_z_points[, 1:2])  # Триангуляция в 2D
+# Преобразуем в формат mesh3d
+new_mesh <- list(
+  vb = rbind(t(min_z_points), 1),  # Вершины (в однородных координатах)
+  it = t(delaunay_tri),            # Грани (триангуляция)
+  normals = NULL
+)
+class(new_mesh) <- "mesh3d"
+#####
+# Получаем вершины (X, Y, Z)
+vertices <- t(new_mesh$vb[1:3, ])
+x <- vertices[, 1]
+y <- vertices[, 2]
+z_original <- vertices[, 3]  # Исходные высоты
+#####
+# Функция для скользящего среднего (можно заменить на сплайн или гауссово сглаживание)
+smooth_z <- function(z, window_size = 5) {
+  n <- length(z)
+  smoothed_z <- numeric(n)
+  for (i in 1:n) {
+    start <- max(1, i - window_size)
+    end <- min(n, i + window_size)
+    smoothed_z[i] <- mean(z[start:end])
+  }
+  return(smoothed_z)
+}
+# Сглаживаем Z
+z_smoothed <- smooth_z(z_original, window_size = 15)
+###
+# Создаём новый меш (X и Y остаются прежними)
+smoothed_surface <- new_mesh
+smoothed_surface$vb[3, ] <- z_smoothed  # Обновляем только Z
+return(smoothed_surface)
+}
+####################################################################### mesh_cut_by_mesh
+  mesh_cut_by_mesh=function(mesh_1, mesh_2){
+ # Вычисляем расстояние от каждой вершины mesh1 до mesh2
+ 
+ #  mesh_1=sl4
+  # mesh_2=surface_botton
+
+   distances <- vcgClost(mesh_1, mesh_2,  sign=TRUE, borderchk = T)$quality
+   q025=quantile(distances,0.25)
+   q075=quantile(distances,0.75)
+  # Определяем вершины для удаления (ниже поверхности mesh2)
+   keep_vertices <- which(distances < 0.1 & distances > -0.1)  # Оставляем только внешние точки
+   trimmed_mesh <- rmVertex(mesh_1, keep_vertices)
+   trimmed_mesh=vcgIsolated(trimmed_mesh)
+   # pl(trimmed_mesh)
+
+   return(trimmed_mesh)
+  
+}
+############################################
+ mesh_cut_by_convhulln=function(mesh_1){
+  vertices <- t(mesh_1$vb[1:3,])# Получаем вершины меша
+  hull <- convhulln(vertices, options="Qt")# Строим выпуклую оболочку
+  convex_mesh <- list(vb=mesh_1$vb, it=t(hull))# Создаем новый меш
+  class(convex_mesh) <- "mesh3d"
+  cleanMwsh <- vcgClean(convex_mesh, sel = c(1,2,3,4,5,6,7), iterate = TRUE)
+  mesh_cut <- vcgClost(mesh_1,cleanMwsh, sign = TRUE)
+  return(mesh_cut)
+}
+############################################################################# изьятия боков ларги и построение выпуклой оболочки на этой основе.
+   surface_to_solid_mesh = function(mesh){
+      normals <- trimmed_mesh$normals  # Nx3
+     # Вычисляем угол между нормалью и вертикалью (ось Z)
+      angles <- acos(abs(normals[3,]))  # угол в радианах
+    # Оставляем только те точки, где нормаль почти вертикальна (т.е. не пол)
+     threshold_angle <- pi / 5#6 # 4  # 45 градусов
+     valid_indices <- which(angles < threshold_angle)
+     filtered_mesh <- rmVertex(trimmed_mesh, index = valid_indices)
+     tm <- vcgIsolated(filtered_mesh) 
+
+  vertices <- t(tm$vb[1:3,])# Получаем вершины меша
+  hull <- convhulln(vertices, options="Qt")# Строим выпуклую оболочку
+  solid_mesh <- list(vb=tm$vb, it=t(hull))# Создаем новый меш
+  class(solid_mesh) <- "mesh3d"
+  solid_mesh = vcgUpdateNormals(solid_mesh)
+  return(solid_mesh)
+  }
+ ####################################################################### 
+  sl=seal_cut(PolPth,site_3d_gps_pth)
+  
+  sl2=vcgIsolated(sl)
+  sl3 <- vcgUpdateNormals(sl2)
+  sl4 <- vcgSmooth(sl3)
+  
+  alpha_botton = mesh_to_alpha_botton(sl4)
+  surface_botton = alfa_to_surface(alpha_botton)
+  #surface_botton <- vcgClean(surface_botton, sel = c(1,2,3,4,5,6,7), iterate = TRUE)
+ # surface_botton = vcgSmooth(surface_botton)
+   trimmed_mesh = mesh_cut_by_mesh( sl4,surface_botton)
+   mesh_cut =  mesh_cut_by_convhulln(trimmed_mesh)
+   trimmed_mesh1 = mesh_cut_by_mesh(mesh_cut, surface_botton)
+   btn = mesh_to_alpha_botton(trimmed_mesh1)
+  
+
+  
+  
+  
+  
+   pl(sl,1,0.2)
+   pl(trimmed_mesh1, 2, 0.8)
+   pl(btn,4,0.8)
+   #combined_mesh <- mergeMeshes(surface_botton, trimmed_mesh1)
+  # combined_mesh <- vcgUpdateNormals(combined_mesh)
+#   combined_mesh= vcgSmooth(combined_mesh)#, "HClaplace", iteration = 3)
+   pl(combined_mesh)
+   
+   
+  # nmsh= vcgBallPivoting(combined_mesh, radius = 0.1)
+  # nmsh1 <- vcgQEdecim(combined_mesh, percent = 0.7)  # Simplify by 70%
+   
+   rec = mesh_surface_reconstract_alpha(combined_mesh)
+   pl(rec)
+   pl(surface_botton,2,0.9)
+ 
+   pl(sl,1,0.8)
+     pl(rec,2,0.3)
+#############################################################
+# Шаг 1: Находим граничные точки
+
+
+
+
+
+
+
+draft=function(){
+boundary_points <- Rvcg::vcgNonBorderEdge(combined_mesh)[[1]]
+border_vertices <- vert2points(combined_mesh)[boundary_points, ]
+# Create alpha shape from boundary vertices
+alpha_shape <- ashape3d(border_vertices, alpha = 0.4)
+closed_mesh <- as.mesh3d(alpha_shape)
+
+
+ nmsh= vcgBallPivoting(border_vertices, radius = 0.2)
+
+
+     shade3d(trimmed_mesh, color = "gray", alpha = 0.8)
+	 shade3d(mesh1, col = "red", size = 7, alpha = 0.3)
+	  points3d(border_vertices, col = "red", size = 7, alpha = 0.8)
+	 
+	 
+	 
+	 
+	shade3d(shell_mesh, color = "gray", alpha = 0.4)
+	
+	 bbox_lines <- rgl::bbox3d(color = "gray")
+	 
+	 
+    shade3d(cleanMwsh, color = "gray", alpha = 0.5)
+    
+ 
+	 shade3d(cleanMwsh, color = "lightblue", alpha = 0.5)
+	    points3d(insidepoints, col = "red", size = 7, alpha = 0.2)
+ vertices <- t(trimmed_mesh$vb[1:3,])# Получаем вершины меша
+  hull <- convhulln(vertices, options="Qt")# Строим выпуклую оболочку
+  convex_mesh <- list(vb=trimmed_mesh$vb, it=t(hull))# Создаем новый меш
+  class(convex_mesh) <- "mesh3d"
+  cleanMwsh <- vcgClean(convex_mesh, sel = c(1,2,3,4,5,6,7), iterate = TRUE)
+
+
+
+
+ vertices <- vert2points(cleanMwsh)
+   bbox <- apply(vertices, 2, range)  # Минимальные и максимальные координаты
+# Генерация случайных точек в bounding box
+n_points <- 1000000  # Желаемое количество точек
+random_points <- matrix(
+  runif(n_points * 3, min = bbox[1, ], max = bbox[2, ]),
+  ncol = 3,
+  byrow = TRUE
+)
+ 
+ kdtree <- vcgCreateKDtree(cleanMwsh)
+ 
+ # Находим ближайшие точки на меше и их расстояния (с учетом знака)
+closest <- vcgClostKD(
+  x = random_points,
+  mesh = cleanMwsh,
+  sign = TRUE,          # Возвращает знаковое расстояние
+  threads = 4          # Используем 4 потока для ускорения
+
+)
+ 
+ inside_points <- random_points[closest$quality < -0.001 ,]  #&  closest$quality < 0.001 , ]
+
+ # Находим ближайшие точки на меше и их расстояния (с учетом знака)
+closest <- vcgClostKD(
+  x = inside_points,
+  mesh = ground,
+  sign = TRUE,          # Возвращает знаковое расстояние
+  threads = 4          # Используем 4 потока для ускорения
+
+)
+
+ insidepoints <- inside_points[closest$quality < -0.001 ,]  #&  closest$quality < 0.001 , ]
+
+#################################################
+normals <- mesh5$normals  # Nx3
+# Вычисляем угол между нормалью и вертикалью (ось Z)
+angles <- acos(abs(normals[3,]))  # угол в радианах
+# Оставляем только те точки, где нормаль почти вертикальна (т.е. не пол)
+threshold_angle <- pi / 5#6 # 4  # 45 градусов
+valid_indices <- which(angles < threshold_angle)
+filtered_mesh <- rmVertex(mesh5, index = valid_indices)
+mesh6 <- vcgIsolated(filtered_mesh) 
+##################################################### 
+  vertices <- t(tm$vb[1:3,])# Получаем вершины меша
+  hull <- convhulln(vertices, options="Qt")# Строим выпуклую оболочку
+  convex_mesh <- list(vb=tm$vb, it=t(hull))# Создаем новый меш
+  class(convex_mesh) <- "mesh3d"
+  cleanMwsh <- vcgClean(convex_mesh, sel = c(1,2,3,4,5,6,7), iterate = TRUE)
+
+
+
+     shade3d(mesh12, color = "lightblue", alpha = 0.8)
+	 shade3d(trimmed_mesh, color = "red", alpha = 0.3)
+	 
+	 bbox_lines <- rgl::bbox3d(color = "gray")
+     vcgVolume(mesh12)
+     vcgArea(cleanMwsh)
+  
+
+
+boundary_points <- Rvcg::vcgBorder(mesh5)[[1]]
+border_vertices <- vert2points(mesh5)[boundary_points, ]
+
+# PCA для анализа структуры границ
+#pca <- prcomp(border_vertices)
+
+# Применяем DBSCAN (подбираем eps в зависимости от масштаба меша)
+clusters <- dbscan(border_vertices, eps = 0.1, minPts = 3)$cluster
+# Визуализация кластеров (каждый кластер — разный цвет)
+plot3d(border_vertices, col = clusters + 1, size = 5)
+
+# Считаем размер каждого кластера
+cluster_sizes <- table(clusters)
+# Исключаем самый большой кластер (внешний край)
+main_cluster <- as.integer(names(which.max(cluster_sizes)))
+small_holes <- clusters != main_cluster & clusters != 0  # 0 — шум в DBSCAN
+
+
+valid_indices=small_holes
+filtered_mesh <- rmVertex(mesh5, index = valid_indices)
+mesh6 <- vcgIsolated(filtered_mesh) 
+
+
+
+ shade3d(closed_mesh , color = "lightblue", alpha = 0.9)
+   points3d(pca$x, col = "red", size = 7)
+   bbox_lines <- rgl::bbox3d(color = "gray")
+
+#mesh5 <- vcgUpdateNormals(mesh4)
+#mesh12 <- vcgBallPivoting(filtered_mesh, radius = 0.05)
+#mesh13 <- vcgSmooth(mesh12, "HClaplace", iteration = 5)
+#mesh14 <- vcgClean(mesh13, sel = c(1,2,3,4,5,6,7), iterate = TRUE)
+#mesh15 <- vcgUpdateNormals(mesh14)
+ # cleanMwsh <- vcgClean(convex_mesh, sel = c(1,2,3,4,5,6,7), iterate = TRUE)
+ # cleanMwsh <- vcgUpdateNormals(cleanMwsh)
+###############################################
+# mrg <- vcgClost(mesh1, mesh14, sign=TRUE, borderchk = T)
+# distances = mrg$quality
+ 
+
+  # Определяем вершины для удаления (ниже поверхности mesh2)
+   keep_vertices <- which(distances > 0)  # Оставляем только внешние точки
+   trimmed_mesh <- rmVertex(mesh1, keep_vertices)
+   
+
+  # Удаляем артефакты
+ #  seal4 <- vcgClean(trimmed_mesh, sel=0)  # Удаление несвязных компонент
+   seal5= vcgSmooth(seal4)
+
+
+   vcgVolume(cleanMwsh)
+   vcgArea(cleanMwsh)
+  
+
+ 
+   shade3d(mesh14, color = "red", alpha = 0.9)
+   shade3d(mesh4, color = "red", alpha = 0.9)
+    bbox_lines <- rgl::bbox3d(color = "gray")
+   # shade3d(closed_mesh, color = "lightblue", alpha = 0.3)
+	 shade3d(ground, color = "lightblue", alpha = 0.3)
+	  shade3d(botton, color = "red", alpha = 0.3)
+	   shade3d(seal, color = "lightblue", alpha = 0.3)
+	    shade3d(mesh1, color = "red", alpha = 0.3); shade3d(cleanMwsh, color = "lightblue", alpha = 0.3)
+		
+		
+		  shade3d(trimmed_mesh, color = "lightblue", alpha = 0.3)
+		
+		 shade3d(seal4, color = "lightblue", alpha = 0.3)
+		  shade3d(seal5, color = "lightblue", alpha = 0.3)
+		
+
+
+     vcgWrlWrite(mesh1,"mesh1.obj")
+	 
+#mesh2=mesh1# <- vcgUpdateNormals(mesh1)  # Update mesh normals
 
 # Extract boundary edges and vertices
-boundary_edges <- Rvcg::vcgBorder(mesh2)[[1]]
-border_vertices <- vert2points(mesh2)[boundary_edges, ]
+boundary_edges <- Rvcg::vcgBorder(mesh14)[[1]]
+border_vertices <- vert2points(mesh14)[boundary_edges, ]
 
 # Create alpha shape from boundary vertices
 alpha_shape <- ashape3d(border_vertices, alpha = 0.4)
 closed_mesh <- as.mesh3d(alpha_shape)
 
 # Calculate signed distances from mesh to alpha shape
-distances <- vcgClost(mesh2, closed_mesh, sign = TRUE)
-botton <- vcgSmooth(distances, "HClaplace", iteration = 10)  # Smooth the bottom surface
+ground <- vcgClost(mesh14, closed_mesh, sign = TRUE)
+botton <- vcgSmooth(ground, "HClaplace", iteration = 30)  # Smooth the bottom surface
 
-# Visualize results
-shade3d(botton, color = "red", alpha = 0.9)
-shade3d(mesh2, color = "gray", alpha = 0.5)
 
 # Convert bottom mesh back to CRS coordinates
 x <- botton$vb[1,] + E
@@ -114,27 +471,86 @@ coords[,2] <- coords[,2] - N
 seal <- vcgBallPivoting(coords, radius = 0.05)
 seal2 <- vcgUpdateNormals(seal)
 
-# Visualize both meshes
-shade3d(botton, color = "red", alpha = 0.9)
-shade3d(seal2, color = "gray", alpha = 0.5)
+ # Вычисляем расстояние от каждой вершины mesh1 до mesh2
+  distances <- vcgClost(seal2, botton, sign=TRUE, borderchk = T)$quality
+  # Определяем вершины для удаления (ниже поверхности mesh2)
+   keep_vertices <- which(distances > 0)  # Оставляем только внешние точки
+   trimmed_mesh <- rmVertex(seal2,keep_vertices)
+  # Удаляем артефакты
+ #  seal4 <- vcgClean(trimmed_mesh, sel=0)  # Удаление несвязных компонент
+   seal5= vcgSmooth(seal4)
 
-# Merge meshes and clean the result
-closed_seal <- mergeMeshes(botton, seal2)
+ vcgWrlWrite(cleanMwsh,"cleanMwsh.obj")
+################################################################################
+# Проверяем, какие вершины mesh1 попадают внутрь проекции mesh2
+		 inside_points <- vcgClost(seal,botton,borderchk=T,barycentric=T) #
+         combined_mesh <- mergeMeshes(seal, inside_points)
+ 
+ 
+       # Создаем облако точек из объединенного меша
+       combined_points <- t(combined_mesh$vb[1:3, ])
+
+    # Вычисляем выпуклую оболочку или реконструируем поверхность
+   # Увеличьте точность реконструкции
+     watertight_mesh <- vcgBallPivoting(combined_points, 
+                                 radius =0.09,  # Несколько радиусов
+                                 clustering = 0.1)
+	 Smoor=vcgSmooth(watertight_mesh)	
+ 
+	
+   
+		     smMwsh=vcgSmooth(cleanMwsh, iteration = 5)							 
+watertight_mesh <- vcgQEdecim(watertight_mesh, percent = 0.3)  # Simplify by 70%
+
+
+normals <- mesh2$normals  # Nx3
+# Вычисляем угол между нормалью и вертикалью (ось Z)
+angles <- acos(abs(normals[3,]))  # угол в радианах
+# Оставляем только те точки, где нормаль почти вертикальна (т.е. не пол)
+threshold_angle <- pi / 6 # 4  # 45 градусов
+valid_indices <- which(angles < threshold_angle)
+
+filtered_mesh <- rmVertex(mesh2, index = valid_indices)
+mesh12 <- vcgBallPivoting(filtered_mesh, radius = 0.05)
+shade3d(mesh12, color = "gray", alpha = 0.5)
+
+vcgPlyWrite(mesh2, "mesh2.ply")
+
+
+
+
+watertight_mesh <- vcgQEdecim(closed_seal, percent = 0.3)  # Simplify by 70%
+smoorfic <- vcgSmooth(watertight_mesh, "HClaplace", iteration = 10)  # Smooth the bottom surface
+shade3d(smoorfic, color = "gray", alpha = 0.5)
+
+
+
+
+
+shade3d(uniform, color = "gray", alpha = 0.5)
+shade3d(seal2, color = "red", alpha = 0.5)
+
+vcgVolume(uniform_points)  # Calculate volume of the mesh
+
+
+
+
+
+
 mesh3 <- vcgClean(closed_seal, sel = c(1,2,3,4,5,6,7), iterate = TRUE)
 
 # Simplify mesh and calculate volume
 watertight_mesh <- vcgQEdecim(mesh3, percent = 0.3)  # Simplify by 70%
 vcgVolume(watertight_mesh)  # Calculate volume of the mesh
 
+shade3d(watertight_mesh, color = "gray", alpha = 0.9)
+shade3d(botton, color = "red", alpha = 0.9)
 # Additional visualization (commented out)
 # shade3d(watertight_mesh, color = "gray", alpha = 0.4)
 # bbox_lines <- rgl::bbox3d(color = "gray")
 # points3d(inside_points, col = "red", size = 2)
    
  
-
-
-draft=function(){
 	
 	 vcgVolume(watertight_mesh) 
 
@@ -255,16 +671,7 @@ grid <- meshToGrid(
   zmin = bbox[1,3], zmax = bbox[2,3]
 )
  
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
+
  
  library(misc3d)
 
@@ -285,14 +692,7 @@ mesh_shell <- vcgDelaunay(verts) # Триангуляция
 shade3d(mesh_shell, col = "red", alpha = 0.5)
 wire3d(mesh, col = "gray") # Исходный меш для сравнения
  
- 
- 
- 
- 
- 
- 
- 
- 
+
  
  
  uniform_points <- vcgUniformRemesh(
@@ -327,19 +727,8 @@ points3d(internal_points, col = "red", size = 2)
 
 
 shade3d(random_points, col = "lightblue", alpha = 0.2)
-
-
-
- 
-   
-   
-   
- shade3d(NewShape1 , color = "lightblue")
- 
-
-
+ hade3d(NewShape1 , color = "lightblue")
 volume_ashape3d(alpha_shape)
-
  vcgVolume(mesh3)
   
   
@@ -349,12 +738,6 @@ volume_ashape3d(alpha_shape)
   shade3d(seal_mesh , color = "lightblue")
 
 
-
-
-
-
-
-  
   
   mesh4 <- vcgIsolated(mesh3)
   mesh5 <- vcgUpdateNormals(mesh4)
