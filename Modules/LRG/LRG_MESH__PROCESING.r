@@ -23,6 +23,8 @@ Species <- "LRG"
 date1 <- substr(basename(labelInput), 1, 15)
 MeshDir = paste0(labelInput, "\\Predict\\MeshCrop")
 MeshLst=list.files(MeshDir, full.names=T)
+###########################################################################################
+	
 ##############################################
 pl=function(mesh,col=1,alpha = 0.5){shade3d(mesh, color=col, alpha=alpha); bbox_lines <- rgl::bbox3d(color = "gray")}
 ##############################################################################  mesh_surface_reconstract
@@ -58,7 +60,7 @@ pl=function(mesh,col=1,alpha = 0.5){shade3d(mesh, color=col, alpha=alpha); bbox_
    # Считаем размер каждого кластера
    cluster_sizes <- table(clusters)
    # Исключаем самый большой кластер (внешний край)
-    main_cluster <- as.integer(names(which.max(cluster_sizes)))
+     main_cluster <- as.integer(names(which.max(cluster_sizes)))
      small_holes <- clusters != main_cluster & clusters != 0  # 0 — шум в DBSCAN
 if (filter==T){br_vr=border_vertices[!small_holes,]} else {br_vr=border_vertices}
    # Create alpha shape from boundary vertices
@@ -148,6 +150,8 @@ return(smoothed_surface)
 }
 ############################################################################# изьятия боков ларги и построение выпуклой оболочки на этой основе.
    surface_to_solid_mesh = function(mesh){
+     
+	  mesh=vcgUpdateNormals(mesh)
       normals <- mesh$normals  # Nx3
      # Вычисляем угол между нормалью и вертикалью (ось Z)
       angles <- acos(abs(normals[3,]))  # угол в радианах
@@ -348,6 +352,7 @@ mesh_reconstract_by_mesh <- function(base_mesh,      # Базовый меш (э
 		return(msh)
 }
 #####################################################################
+#########################################################################
 sl = NULL
 sl2 = NULL
 sl3 = NULL
@@ -367,22 +372,24 @@ mrg3 = NULL
 mrg4 = NULL
 mrg5 = NULL
  
- for (i in 1:length(MeshLst)){
+ #for (i in 1:length(MeshLst)){
+  i=14
   slpth=  MeshLst[i]
  flsize= file.size(MeshLst[i])
-  if (flsize < 90000) {unlink(slpth)} else {
+ # if (flsize < 90000) {unlink(slpth)} else {
   sl = vcgImport(slpth)
   
   sl2=vcgIsolated(sl)
   sl3 <- vcgUpdateNormals(sl2)
   
-   open3d()
-   shade3d(mesh)
-   writePLY(slpth)
-   close3d()
-  #sl4 <- vcgSmooth(sl3)
-  }
-  }
+  # open3d()
+ #  shade3d(mesh)
+ #  writePLY(slpth)
+  # close3d()
+
+ # }
+ # }
+   sl4 <- vcgSmooth(sl3)
   alpha_botton = mesh_to_alpha_botton(sl4)
   
   SlDown = vcgClost(alpha_botton, sl4)
