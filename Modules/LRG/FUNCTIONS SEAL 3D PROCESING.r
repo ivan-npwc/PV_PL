@@ -3,7 +3,7 @@
 
 
 mesh_reconstract=function(mesh,ball_radius=0.02,num_samples=10000){
- smpls <- vcgSample(mesh, SampleNum = num_samples, type = "pd")
+  smpls <- vcgSample(mesh, SampleNum = num_samples, type = "pd")
   reconstract <- vcgBallPivoting(smpls, radius = ball_radius)
   reconstract=vcgIsolated(reconstract)
   reconstract <- vcgUpdateNormals(reconstract)
@@ -11,13 +11,40 @@ mesh_reconstract=function(mesh,ball_radius=0.02,num_samples=10000){
 
 }
 ##############################################
-pl=function(mesh,col=1,alpha = 0.5){shade3d(mesh, color=col, alpha=alpha); bbox_lines <- rgl::bbox3d(color = "gray")}
-##############################################################################  
-seal_pca=function(mesh,ball_radius=0.02,num_samples=10000){
+pl=function(mesh,col=1,alpha = 0.5){shade3d(mesh, color=col, alpha=alpha) } #bbox_lines <- rgl::bbox3d(color = "gray")
+##############################################################################
+ determine_mesh_orientation=function(mesh){
 
-   smpls <- vcgSample(mesh, SampleNum = num_samples, type = "pd")
+    #mesh=pca_mesh
+    verts <- vert2points(mesh)
+    z_coords <- verts[,3]
+	rng=range(z_coords)
+	meansealalt=mean(rng)
+
+	boundary_edges <- Rvcg::vcgBorder(mesh)[[1]]
+   border_vertices <- vert2points(mesh)[boundary_edges, ]
+   clusters <- dbscan(border_vertices, eps = 0.1, minPts = 3)$cluster
+   # Считаем размер каждого кластера
+   cluster_sizes <- table(clusters)
+   # Исключаем самый большой кластер (внешний край)
+     main_cluster <- as.integer(names(which.max(cluster_sizes)))
+     small_holes <- clusters != main_cluster & clusters != 0  # 0 — шум в DBSCAN
+     br_vr=border_vertices[!small_holes,]
+	 BottonAlt=median(br_vr[,3])
+
+    if(BottonAlt < meansealalt) {
+      orientation <- "midi down"
+    } else {
+      orientation <- "midi up"
+    }
+  #}  
+    return(orientation) 
+}
+############################################################################
+seal_pca=function(mesh){
+   smpls <- vcgSample(mesh, SampleNum = 10000, type = "pd")
    pca <- prcomp(smpls, center = TRUE, scale. = FALSE)
-   pca_mesh <- vcgBallPivoting(x = pca$x, radius = ball_radius)
+   pca_mesh <- vcgBallPivoting(x = pca$x, radius=0.02)
    return(pca_mesh)
 #######
 #if (returnOrig==T){
@@ -32,6 +59,7 @@ seal_pca=function(mesh,ball_radius=0.02,num_samples=10000){
 
 }
 ################################################################################
+###################################################
 close_small_holes <- function(mesh, max_hole_size = 50) {
 options(warn = -1) 
  # Проверка входных данных
@@ -227,7 +255,9 @@ return ( mesh_out)
 #####################################################
 generate_precise_contours <- function(mesh, num_slices = 10, image_size = 1024) {
 
-
+  # mesh=pca_mesh
+ #  num_slices = 50
+ #  image_size = 1024
   # 1. Подготовка данных
   vertices <- vert2points(mesh)
   z <- vertices[,3]
@@ -263,7 +293,7 @@ generate_precise_contours <- function(mesh, num_slices = 10, image_size = 1024) 
         }
       }
     }
-    
+  	
     # Сохраняем контуры
     if(length(contour_lines) > 0) {
       contour_coords <- do.call(rbind, contour_lines)
@@ -275,16 +305,9 @@ generate_precise_contours <- function(mesh, num_slices = 10, image_size = 1024) 
         polygon(contour_coords[k,], border = hcl.colors(num_slices, "Plasma")[i], lwd = 2)
       }
     }
-  }
-  
-  return(list(
-    contours = contour_list,
-    levels = z_levels,
-    x_range = x_range,
-    y_range = y_range
-  ))
-}
-#######################################################################
+ }
+ }
+ #########################################################
 get_vertebras=function(mesh,num_slices=20){
   # mesh=sl8
   # num_slices=20
@@ -313,7 +336,7 @@ verts=NULL
   return(verts)
 }
 ############################################################################## 
-   surface_to_solid_mesh = function(mesh){
+ surface_to_solid_mesh = function(mesh){
 	  mesh=vcgUpdateNormals(mesh)
       normals <- mesh$normals  # Nx3
      # Вычисляем угол между нормалью и вертикалью (ось Z)
@@ -344,3 +367,520 @@ verts=NULL
   }
 }
 ################################
+ Get_bottom=function(mesh, alpha = 0.4, alt_correct=0){
+ #mesh=sl12
+   mesh=mesh_reconstract(mesh)
+  # mesh=vcgSmooth (mesh,type = "laplace", iteration = 30)
+      #mesh=mesh_reconstract(mesh)
+   boundary_edges <- Rvcg::vcgBorder(mesh)[[1]]
+   border_vertices <- vert2points(mesh)[boundary_edges, ]
+   
+ 
+# Настройки
+k_sor <- 20       # Количество соседей для анализа
+multiplier <- 1.5  # Множитель для порога (чем выше, тем агрессивнее фильтрация)
+
+# Вычисляем средние расстояния до k соседей
+nn <- vcgKDtree(border_vertices, border_vertices, k = k_sor)
+mean_dist <- rowMeans(nn$distance)
+
+# Определяем порог (медиана + множитель * SD)
+threshold <- median(mean_dist) + multiplier * sd(mean_dist)
+is_noise <- mean_dist > threshold
+
+filtered_points <- border_vertices[!is_noise, ]
+
+   # Create alpha shape from boundary vertices
+   alpha_shape <- ashape3d(filtered_points, alpha =alpha)
+   alpha_mesh <- as.mesh3d(alpha_shape)
+   
+   vertices <- t(alpha_mesh$vb[1:3, ])  # Nx3 матрица координат
+### 2. Находим минимальные Z для каждой (X, Y)
+# Округляем X и Y до 3 знаков, чтобы избежать шума
+rounded_xy <- round(vertices[, 1:2], digits = 3)
+# Группируем по (X, Y) и находим минимальный Z в каждой группе
+unique_xy <- unique(rounded_xy)
+min_z_points <- matrix(nrow = nrow(unique_xy), ncol = 3)
+for (i in 1:nrow(unique_xy)) {
+  x <- unique_xy[i, 1]
+  y <- unique_xy[i, 2]
+  mask <- (rounded_xy[, 1] == x) & (rounded_xy[, 2] == y)
+  min_z <- min(vertices[mask, 3])
+  min_z_points[i, ] <- c(x, y, min_z)
+}
+### 3. Строим новую поверхность (триангуляция Делоне)
+delaunay_tri <- delaunayn(min_z_points[, 1:2])  # Триангуляция в 2D
+# Преобразуем в формат mesh3d
+new_mesh <- list(
+  vb = rbind(t(min_z_points), 1),  # Вершины (в однородных координатах)
+  it = t(delaunay_tri),            # Грани (триангуляция)
+  normals = NULL
+)
+class(new_mesh) <- "mesh3d"
+
+  smpls <- vcgSample(new_mesh, SampleNum = 5000, type = "pd")
+ 
+  smpls[,3] =  smpls[,3] + alt_correct
+  reconstract <- vcgBallPivoting(smpls, radius = 0.02)
+  reconstract <- vcgUpdateNormals(reconstract)
+   return(reconstract)
+} 
+############################################
+ trim_seal_by_ground <- function(seal_mesh, ground_mesh, above = T) {
+  
+ #seal_mesh = sl12
+ # ground_mesh = bottom
+ # above = T
+ # ground_mesh=vcgSmooth (ground_mesh,type = "laplace", iteration = 30)
+  # Вычисляем расстояние от каждой вершины тюленя до поверхности
+    clost <- vcgClost(seal_mesh, ground_mesh, sign = TRUE)
+	
+	inside = clost$quality > 0
+	outside=clost$quality < 0
+	
+    trimmed_seal_pts1 <- vert2points(seal_mesh)[inside, ]
+	trimmed_seal_pts2 <- vert2points(seal_mesh)[outside, ]
+	
+	if (length(trimmed_seal_pts2[,1])> length(trimmed_seal_pts1[,1])){trimmed_seal_pts=trimmed_seal_pts2}else{trimmed_seal_pts=trimmed_seal_pts1}
+   # trimmed_seal_mesh <- vcgBallPivoting(trimmed_seal_pts,radius=0.02)
+  
+  # Определяем вершины для сохранения
+ # keep_verts1 <-  which(dist < 0)
+ # keep_verts12= which(dist > 0)
+  
+
+#  vertices <- vert2points(seal_mesh)
+#  filter_verts = vertices[keep_verts,]
+  
+    clusters <- dbscan(trimmed_seal_pts, eps = 0.01, minPts = 3,)$cluster
+    # Считаем размер каждого кластера
+    cluster_sizes <- table(clusters)
+    # Исключаем самый большой кластер (внешний край)
+     main_cluster <- as.integer(names(which.max(cluster_sizes)))
+     small_holes <- clusters != main_cluster & clusters != 0  # 0 — шум в DBSCAN
+     br_vr=trimmed_seal_pts[!small_holes,]
+  
+
+  
+ #  filter_mesh <- vcgBallPivoting(br_vr, radius = 0.02)
+ #  filter_mesh <- vcgUpdateNormals(filter_mesh)
+   
+   
+   trimmed_seal_mesh <- vcgBallPivoting(br_vr,radius=0.02)
+   
+ #  trimmed_seal2 = trim_seal_by_ground (seal_mesh=sl12, surface_mesh=bottom, above = F)
+#		     # check and fix  
+#			range1= diff(range(vert2points(trimmed_seal1)[,3]))
+#			range2= diff(range(vert2points(trimmed_seal2)[,3]))
+#			 if(range1>range2){trimmed_seal=trimmed_seal1} else{trimmed_seal=trimmed_seal2}
+   
+   
+   return(trimmed_seal_mesh)
+   
+   
+   
+   
+ #  pl(surface_mesh)
+ #  pl(seal_mesh,4)
+   
+}   
+	
+###################################################
+ PointySize = function(
+                     mesh,
+                     initial_points=5000,
+					 length.out=100
+					){
+   #mesh=sl_m
+  # length.out=100
+  # initial_points=5000
+   
+ #   i=30
+
+   result_points <- NULL
+   scales <- seq(1, 0.01, length.out = length.out)
+   
+
+  for (i in 1:length.out) {
+    # Масштабирование меша
+    scaled_mesh <- mesh
+    scale_factor = scales[i]
+	n_points <- ifelse(i > 11, round(initial_points *  exp(-i/20)), initial_points) 
+    scaled_mesh$vb[1:3, ] <- scale_factor * mesh$vb[1:3, ]
+    new_points <- vcgSample(scaled_mesh, SampleNum =n_points, type = "km") #,MCsamp=100,strict=T,geodes=T,iter.max=10
+    result_points <- rbind(result_points, new_points)
+    print(paste0(i,"     scale_factor   ",scale_factor ))
+
+	#points3d(result_points,col=2,alpha=0.2)
+ 
+  }
+  
+  return(result_points)
+ 
+
+ }
+
+######################################################
+  VoxeliSize = function(PointsVolume, voxel_size=0.01){
+ # PointsVolume=pnts
+  bbox <- apply(PointsVolume, 2, range)  # min/max по X, Y, Z
+  grid_size <- ceiling((bbox[2,] - bbox[1,]) / voxel_size)
+# Создаём регулярный грид
+x_seq <<- seq(bbox[1, 1], bbox[2, 1], length.out = grid_size[1])
+y_seq <<- seq(bbox[1, 2], bbox[2, 2], length.out = grid_size[2])
+z_seq <<- seq(bbox[1, 3], bbox[2, 3], length.out = grid_size[3])
+
+# Инициализируем пустой 3D-массив (0 = пусто, 1 = воксель)
+voxel_array <- array(0, dim = grid_size)
+
+ # Привязываем точки к ближайшим вокселям
+for (i in 1:nrow(PointsVolume)) {
+  x_idx <- which.min(abs(x_seq - PointsVolume[i, 1]))
+  y_idx <- which.min(abs(y_seq - PointsVolume[i, 2]))
+  z_idx <- which.min(abs(z_seq - PointsVolume[i, 3]))
+  voxel_array[x_idx, y_idx, z_idx] <- 1  # помечаем воксель как заполненный
+} 
+  return(voxel_array)
+  
+
+  }
+  
+######################################
+vpl=function(voxel_array){
+
+
+ #voxel_array=voxel
+# Преобразуем массив в координаты вокселей
+voxel_coords <- which(voxel_array == 1, arr.ind = TRUE)
+
+plot_ly(
+  x = x_seq[voxel_coords[, 1]],
+  y = y_seq[voxel_coords[, 2]],
+  z = z_seq[voxel_coords[, 3]],
+  type = "scatter3d",
+  mode = "markers",
+  marker = list(size = 3, color = "red", opacity = 0.2)
+ 
+) 
+}
+
+voxel_to_mesh=function(voxel_array){
+#voxel_array=voxel
+# Создаем координатную сетку (автоматически по размеру массива)
+#x <- 1:dim(voxel_array)[1]
+#y <- 1:dim(voxel_array)[2]
+#z <- 1:dim(voxel_array)[3]
+
+
+# Применяем Marching Cubes
+  voxel_size=0.01
+  mesh <- vcgIsosurface(voxel_array, threshold = 1)
+  mesh$vb[1:3, ] <- voxel_size * mesh$vb[1:3, ]
+  points <- vcgSample(mesh, SampleNum =10000, type = "pd") #,MCsamp=100,strict=T,geodes=T,iter.max=10
+
+
+ ashape <- ashape3d(points, alpha = 0.45)
+ alpha_mesh <- as.mesh3d(ashape)
+  smpls <- vcgSample(alpha_mesh, SampleNum = 10000, type = "pd")
+  reconstract <- vcgBallPivoting(smpls, radius = 0.04)
+  reconstract=vcgIsolated(reconstract)
+  reconstract <- vcgUpdateNormals(reconstract)
+  
+  	alpha_shape <- ashape3d(vert2points(reconstract), alpha =0.04)
+	volume_ashape3d(alpha_shape)
+  
+  
+  
+  return(reconstract)
+
+
+}
+###################################################################
+clip_mesh_bottom=function(mesh,percent=15){
+ #mesh=sl16
+ #percent=15
+ 
+ 
+    vertices <- vert2points(mesh)
+    z <- vertices[,3]
+    cut_height <- quantile(z, probs = percent/100)
+	keep_verts <- which(z >= cut_height)
+	verticesCut=vertices[keep_verts,]
+	meshCut=vcgBallPivoting(verticesCut,radius=0.02)
+	return(meshCut)
+   # pl(meshCut,2,0.3);pl(mesh,5,0.4)
+
+}
+#####################################################################
+merg_seal_ground <- function(seal_mesh, ground_mesh, 
+                                        smooth_iter = 5, 
+                                        border_width = 0.1) {
+
+ #  seal_mesh =sl17 
+#   ground_mesh = bottom1
+ #  smooth_iter = 5 
+ #  border_width = 0.1
+
+ground_pts=vert2points(ground_mesh)
+inside <- Rvcg::vcgClost(ground_mesh, seal_mesh, sign = TRUE)$quality > 0
+trimmed_ground_pts <- ground_pts[inside, ]
+trimmed_ground_mesh <- vcgBallPivoting(trimmed_ground_pts,radius=0.02)
+
+
+
+  # 1. Объединяем меши для обработки
+  combined_mesh <- mergeMeshes(seal_mesh, trimmed_ground_mesh)
+  combined_vert=vert2points(combined_mesh)
+  
+  
+  # Функция гауссова сглаживания облака точек
+gaussian_smooth_cloud <- function(points, k = 100, sigma = 10) {
+  n <- nrow(points)
+  smoothed <- matrix(0, nrow = n, ncol = 3)
+  
+  for (i in 1:n) {
+    # Находим k ближайших соседей
+    neighbors <- nn2(points, query = points[i, , drop = FALSE], k = k)$nn.idx[1, ]
+    dists <- sqrt(rowSums((points[neighbors, ] - points[i, ])^2))
+    
+    # Гауссовы веса (чем дальше, тем меньше вес)
+    weights <- exp(-dists^2 / (2 * sigma^2))
+    weights <- weights / sum(weights)  # нормировка
+    
+    # Взвешенное усреднение
+    smoothed[i, ] <- colSums(points[neighbors, ] * weights)
+  }
+  
+  return(smoothed)
+}
+
+  
+  
+  sm_pnt = gaussian_smooth_cloud(combined_vert)
+  
+  fin= vcgBallPivoting(sm_pnt,radius=0.02)
+  fin1=mesh_reconstract(fin)
+  fin2=close_small_holes(fin1)
+  
+  #pl(fin1);pl(combined_mesh,2,0.4)
+
+  return(fin2)
+}
+#####################################################################
+get_ground=function(mesh){
+
+    mesh=pca_mesh
+    ground_mesh=Get_bottom(mesh)
+
+      clost <- vcgClost(mesh, ground_mesh, sign = TRUE)
+	
+	inside = clost$quality > 0
+	outside=clost$quality < 0
+	
+    trimmed_pts1 <- vert2points(mesh)[inside, ]
+	trimmed_pts2 <- vert2points(mesh)[outside, ]
+	
+	if (length(trimmed_pts1[,1])> length(trimmed_pts2[,1])){trimmed_pts=trimmed_pts2}else{trimmed_pts=trimmed_pts1}
+
+
+    trimmed_pts
+	
+ clusters <- dbscan(trimmed_pts, eps = 0.01, minPts = 3,)$cluster
+    # Считаем размер каждого кластера
+    cluster_sizes <- table(clusters)
+    # Исключаем самый большой кластер (внешний край)
+     main_cluster <- as.integer(names(which.max(cluster_sizes)))
+     small_holes <- clusters != main_cluster & clusters != 0  # 0 — шум в DBSCAN
+     br_vr=trimmed_pts[!small_holes,]
+  points3d(br_vr)
+  
+  
+	ground_pts_in=vert2points(ground_mesh)
+	ground=rbind(ground_pts_in,br_vr)
+
+
+
+}
+###################################################################
+draft=function(){
+
+##########################################################
+PointsSizedraft = function(mesh){
+
+   # mesh=sl_m
+	for (i in 1:100){
+         if (i==1){scaled_mesh <- mesh ; scaled_factor=1;fin=NULL; n_points <- 300000; minquality= -0.001; maxquality=0.001 }
+     
+     scaled_mesh$vb[1:3, ] <- scaled_factor * scaled_mesh$vb[1:3, ]  # масштабирование
+     vertices <- vert2points(scaled_mesh)
+     bbox <- apply(vertices, 2, range)  # Минимальные и максимальные координаты
+	  
+        # Генерация случайных точек в bounding box
+      points <- matrix(
+      runif(n_points * 3, min = bbox[1, ], max = bbox[2, ]),
+      ncol = 3,
+      byrow = TRUE
+      )
+ 
+ # Находим ближайшие точки на меше и их расстояния (с учетом знака)
+closest <- vcgClostKD(
+  x = points,
+  mesh = scaled_mesh,
+  sign = TRUE,          # Возвращает знаковое расстояние
+  threads = 4          # Используем 4 потока для ускорения
+)
+ 
+ inside_points <- points[closest$quality > minquality  &  closest$quality < maxquality , ]
+ fin=rbind(fin,inside_points)
+
+
+
+  scaled_factor=scaled_factor - 0.05
+  log_scale <- log(n_points) - log(i + 1)
+  n_points=  exp(log_scale)*2  # Возвращаем к исходной шкале
+
+ minquality = minquality*1.2
+ maxquality = maxquality*1.2
+ 
+ if (i>2){ minquality = minquality*3
+            maxquality = maxquality*3}
+ 
+ 
+}
+return(fin)
+ # points3d(fin,col=2,alpha=0.2 )
+}
+##########################################################
+PointsSizedraft2 = function(mesh, 
+                     initial_scale = 1.0, 
+                     scale_step = 0.05,
+                     initial_points = 500000,
+                     min_dist_factor = 0.001,
+                     max_iter = 100,
+                     threads = 4) {
+  
+  # Инициализация
+  result_points <- NULL
+  current_scale <- initial_scale
+  quality_range <- c(-min_dist_factor, min_dist_factor)
+  
+  for (i in 1:max_iter) {
+    # Масштабирование меша
+    scaled_mesh <- mesh
+    scaled_mesh$vb[1:3, ] <- current_scale * mesh$vb[1:3, ]
+    
+    # Получаем вершины и bounding box
+    vertices <-vert2points(scaled_mesh)
+    bbox <- apply(vertices, 2, range)
+    
+    # Адаптивное количество точек (логарифмически уменьшается)
+   if (i>11){ n_points <- round(initial_points * exp(-i/1.5))} else {n_points=initial_points}
+    
+    # Генерация случайных точек в bounding box
+    points <- matrix(
+      runif(n_points * 3, min = bbox[1, ], max = bbox[2, ]),
+      ncol = 3,
+      byrow = TRUE
+    )
+    
+    # Находим ближайшие точки с учетом знака расстояния
+    closest <- Rvcg::vcgClostKD(
+      x = points,
+      mesh = scaled_mesh,
+      sign = TRUE,
+      threads = threads
+    )
+    
+    # Фильтрация точек внутри меша
+    inside <- which(closest$quality > quality_range[1] & 
+                    closest$quality < quality_range[2])
+					
+				
+    
+    if (length(inside) > 0) {
+      new_points <- points[inside, ]
+      result_points <- rbind(result_points, new_points)
+    }
+    
+    # Адаптивно изменяем параметры
+    current_scale <- current_scale - scale_step
+    quality_range <- quality_range * 1.1  # Постепенно увеличиваем диапазон
+    
+    # Ранняя остановка если меш стал слишком маленьким
+    if (current_scale < 0.2) break
+  }
+  
+  return(result_points)
+}
+############################################################
+ mesh=sl_m
+   vertices <- vert2points(mesh)
+   bbox <- apply(vertices, 2, range)  # Минимальные и максимальные координаты
+# Генерация случайных точек в bounding box
+n_points <- 100000 # Желаемое количество точек
+ 
+ points <- matrix(
+  runif(n_points * 3, min = bbox[1, ], max = bbox[2, ]),
+  ncol = 3,
+  byrow = TRUE
+)
+ 
+ # Находим ближайшие точки на меше и их расстояния (с учетом знака)
+closest <- vcgClostKD(
+  x = random_points,
+  mesh = mesh,
+  sign = TRUE,          # Возвращает знаковое расстояние
+  threads = 4          # Используем 4 потока для ускорения
+)
+ 
+ 
+
+
+ # Создаем плотную выборку точек на поверхности меша
+  mesh_samples <- vcgSample(mesh, SampleNum = 10000)
+  
+  # Строим KD-дерево для меша
+  nn <- nn2(mesh_samples, points, k = k)
+  
+  # Эвристика: точка внутри, если среднее расстояние меньше порога
+  mean_dists <- rowMeans(nn$nn.dists)
+  threshold <- quantile(mean_dists, 0.1)
+  inside_points <- points[mean_dists < threshold, ]
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ #inside_points <- random_points[closest$quality > -0.001  &  closest$quality < 0.001 , ]
+
+
+ 
+  inside_points <- random_points[closest$quality > 0.01, ]
+
+  points3d(inside_points,col=2,alpha=0.2 )
+  pl(sl_m,alpha=0.2 )
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
