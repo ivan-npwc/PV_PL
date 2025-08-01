@@ -42,19 +42,24 @@ pl=function(mesh,col=1,alpha = 0.5){shade3d(mesh, color=col, alpha=alpha) } #bbo
 }
 ############################################################################
 seal_pca=function(mesh){
+  # mesh=  sl6
    smpls <- vcgSample(mesh, SampleNum = 10000, type = "pd")
    pca <- prcomp(smpls, center = TRUE, scale. = FALSE)
    pca_mesh <- vcgBallPivoting(x = pca$x, radius=0.02)
    return(pca_mesh)
+   
 #######
 #if (returnOrig==T){
-#  pca_vertices <- vert2points(finmesh) 
+ #  pca_center=pca$center
+#   pca_rotation=   pca$rotation
+ #  pca_vertices <- vert2points(sl_m4) 
 #  # Обратное преобразование PCA
 #  original_vertices <- t(pca_rotation %*% t(pca_vertices)) + matrix(pca_center, 
 #                                                                  nrow = nrow(pca_vertices), 
 #                                                                  ncol = ncol(pca_vertices), 
-#                                                                  byrow = TRUE)
-# finmesh <- vcgBallPivoting(x = original_vertices, radius = ball_radius)																  
+ #                                                                 byrow = TRUE)
+#																  
+# finmesh <- vcgBallPivoting(x = original_vertices, radius = 0.02)																  
 #}
 
 }
@@ -308,34 +313,79 @@ generate_precise_contours <- function(mesh, num_slices = 10, image_size = 1024) 
  }
  }
  #########################################################
-get_vertebras=function(mesh,num_slices=20){
-  # mesh=sl8
+get_spine=function(mesh,num_slices=50){
+
+  # mesh=sl_m6
   # num_slices=20
    
-   smpls <- vert2points(mesh)
-  # 1. Рассчитываем параметры для срезов
-  x_range <- range(smpls[,1])
-  lngth_range <- abs(x_range[1]) + abs(x_range[2])
-  step_size <- lngth_range / num_slices
-  slice_lngths <- seq(x_range[1], x_range[2], step_size)
-verts=NULL
-###################################################
+  smpls <- vcgSample(mesh, SampleNum = 10000, type = "pd")
+    x_range <- range(smpls[,1])
+    	#z_r = range(smpls[,3])
+	  #  alt_r = abs(z_r[1]) + abs(z_r[2])
+   lngth_range <-  diff(x_range)
+   step_size <- lngth_range / num_slices
+   slice_lngths <- seq(x_range[1], x_range[2], step_size)
+   verts=NULL
  for (e in 1:length(slice_lngths)) {
-       if (e == 1){lower_bound=slice_alts[e]}
-	   if (e != 1){lower_bound=slice_alts[e-1]}
+       if (e == 1){lower_bound=slice_lngths[e]}
+	   if (e != 1){lower_bound=slice_lngths[e-1]}
 	   
-	   if (e == length(slice_alts)){upper_bound=slice_alts[e]}
-	   if (e != length(slice_alts)){upper_bound=slice_alts[e+1]}
-
+	   if (e == length(slice_lngths)){upper_bound=slice_lngths[e]}
+	   if (e != length(slice_lngths)){upper_bound=slice_lngths[e+1]}
     # Выбираем точки в текущем слое
       slice_points <- smpls[smpls[,1] > lower_bound & smpls[,1] < upper_bound, ]
+	  DorsalHight= slice_points[which.max(slice_points[, 3]), ][3]
 	  pca <- prcomp(slice_points, center = TRUE, scale. = FALSE)
       vertebra <- pca$center
+	  vertebra[3]=DorsalHight
 	  verts=rbind(vertebra,verts)
     }
   return(verts)
 }
-############################################################################## 
+#####################################################
+get_chest=function(mesh,num_slices=50){
+
+   # mesh=sl_m3
+  # num_slices=50
+
+ smpls <- vcgSample(mesh, SampleNum = 10000, type = "pd")
+    y_range <- range(smpls[,2])
+    #	z_r = range(smpls[,3])
+	  #  alt_r = abs(z_r[1]) + abs(z_r[2])
+   width_range <- diff(y_range)
+   step_size <- width_range / num_slices
+   slice_width <- seq(y_range[1], y_range[2], step_size)
+   chest = NULL
+   chestUp=NULL
+   chestDown=NULL
+########
+ for (e in 1:length(slice_width)) {
+       if (e == 1){lower_bound=slice_width[e]}
+	   if (e != 1){lower_bound=slice_width[e-1]}
+	   
+	   if (e == length(slice_width)){upper_bound=slice_width[e]}
+	   if (e != length(slice_width)){upper_bound=slice_width[e+1]}
+
+    # Выбираем точки в текущем слое
+      slice_points <- smpls[smpls[,2] > lower_bound & smpls[,2] < upper_bound, ]
+	 
+	 Up= slice_points[which.max(slice_points[, 3]), ][3]
+	 Down = slice_points[which.min(slice_points[, 3]), ][3]
+	  pca <- prcomp(slice_points, center = TRUE, scale. = FALSE)
+      chestUp1 <- pca$center
+	  chestUp1[3]=Up
+	  chestDown1=chestUp1
+	  chestDown1[3]=Down
+
+	  chestUp=rbind(chestUp,chestUp1)
+	  chestDown=rbind(chestDown1,chestDown)
+
+    }
+  chest=rbind(chestUp,chestDown)
+	chest[,1]=median(chest[,1])
+	return(chest)
+}
+#####################################################################
  surface_to_solid_mesh = function(mesh){
 	  mesh=vcgUpdateNormals(mesh)
       normals <- mesh$normals  # Nx3
@@ -489,16 +539,20 @@ class(new_mesh) <- "mesh3d"
  PointySize = function(
                      mesh,
                      initial_points=5000,
-					 length.out=100
+					 length.out=100,
+					 type="km",
+                     depth	=0.8				 #pd mc
 					){
-   #mesh=sl_m
-  # length.out=100
-  # initial_points=5000
+ #  mesh=sl_m
+ # length.out=10
+ # initial_points=9000
+ #  type="km"
+  
    
- #   i=30
+  #  i=1
 
    result_points <- NULL
-   scales <- seq(1, 0.01, length.out = length.out)
+   scales <- seq(1, depth, length.out = length.out)
    
 
   for (i in 1:length.out) {
@@ -507,7 +561,7 @@ class(new_mesh) <- "mesh3d"
     scale_factor = scales[i]
 	n_points <- ifelse(i > 11, round(initial_points *  exp(-i/20)), initial_points) 
     scaled_mesh$vb[1:3, ] <- scale_factor * mesh$vb[1:3, ]
-    new_points <- vcgSample(scaled_mesh, SampleNum =n_points, type = "km") #,MCsamp=100,strict=T,geodes=T,iter.max=10
+    new_points <- vcgSample(scaled_mesh, SampleNum =n_points, type = "km") # mc pd
     result_points <- rbind(result_points, new_points)
     print(paste0(i,"     scale_factor   ",scale_factor ))
 
@@ -612,29 +666,26 @@ clip_mesh_bottom=function(mesh,percent=15){
 
 }
 #####################################################################
-merg_seal_ground <- function(seal_mesh, ground_mesh, 
-                                        smooth_iter = 5, 
-                                        border_width = 0.1) {
+merg_seal_ground <- function(seal_mesh, ground_mesh) {
 
  #  seal_mesh =sl17 
 #   ground_mesh = bottom1
- #  smooth_iter = 5 
- #  border_width = 0.1
 
-ground_pts=vert2points(ground_mesh)
-inside <- Rvcg::vcgClost(ground_mesh, seal_mesh, sign = TRUE)$quality > 0
-trimmed_ground_pts <- ground_pts[inside, ]
-trimmed_ground_mesh <- vcgBallPivoting(trimmed_ground_pts,radius=0.02)
+   ground_pts=vert2points(ground_mesh)
+   inside <- Rvcg::vcgClost(ground_mesh, seal_mesh, sign = TRUE)$quality > 0
+   trimmed_ground_pts <- ground_pts[inside, ]
+   trimmed_ground_mesh <- vcgBallPivoting(trimmed_ground_pts,radius=0.02)
+   combined_mesh <- mergeMeshes(seal_mesh, trimmed_ground_mesh)
 
+  return(combined_mesh)
+}
+#####################################################################
+Smooth_points=function(points ,k = 100,sigma = 10){
+   
+   points=smoothed
+   k = 1000 
+   sigma = 10
 
-
-  # 1. Объединяем меши для обработки
-  combined_mesh <- mergeMeshes(seal_mesh, trimmed_ground_mesh)
-  combined_vert=vert2points(combined_mesh)
-  
-  
-  # Функция гауссова сглаживания облака точек
-gaussian_smooth_cloud <- function(points, k = 100, sigma = 10) {
   n <- nrow(points)
   smoothed <- matrix(0, nrow = n, ncol = 3)
   
@@ -653,20 +704,8 @@ gaussian_smooth_cloud <- function(points, k = 100, sigma = 10) {
   
   return(smoothed)
 }
-
-  
-  
-  sm_pnt = gaussian_smooth_cloud(combined_vert)
-  
-  fin= vcgBallPivoting(sm_pnt,radius=0.02)
-  fin1=mesh_reconstract(fin)
-  fin2=close_small_holes(fin1)
-  
-  #pl(fin1);pl(combined_mesh,2,0.4)
-
-  return(fin2)
-}
-#####################################################################
+#############################################################
+################################################################
 get_ground=function(mesh){
 
     mesh=pca_mesh
@@ -702,6 +741,48 @@ get_ground=function(mesh){
 
 }
 ###################################################################
+pca_to_orig=function(meshBase,meshPCA){
+     #meshBase=sl6
+   smpls <- vcgSample(meshBase, SampleNum = 10000, type = "pd")
+   pca <- prcomp(smpls, center = TRUE, scale. = FALSE)
+
+   pca_center=pca$center
+   pca_rotation=   pca$rotation
+   pca_vertices <- vert2points(meshPCA) 
+#  # Обратное преобразование PCA
+  original_vertices <- t(pca_rotation %*% t(pca_vertices)) + matrix(pca_center, 
+                                                                  nrow = nrow(pca_vertices), 
+                                                                  ncol = ncol(pca_vertices), 
+                                                                  byrow = TRUE)
+																  
+  mesh <- vcgBallPivoting(x = original_vertices, radius = 0.02)	
+  return(mesh) 
+
+
+
+
+}
+
+###########################################################
+measurement_to_orig=function(meshBase,measurement){
+   
+  # meshBase=sl6
+  #measurement=spine
+   smpls <- vcgSample(meshBase, SampleNum = 10000, type = "pd")
+   pca <- prcomp(smpls, center = TRUE, scale. = FALSE)
+
+   pca_center=pca$center
+   pca_rotation=   pca$rotation
+   pca_vertices <-measurement
+#  # Обратное преобразование PCA
+  original_vertices <- t(pca_rotation %*% t(pca_vertices)) + matrix(pca_center, 
+                                                                  nrow = nrow(pca_vertices), 
+                                                                  ncol = ncol(pca_vertices), 
+                                                                  byrow = TRUE)
+																   
+  return(original_vertices) 
+  }
+#####################################################
 draft=function(){
 
 ##########################################################

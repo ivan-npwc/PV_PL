@@ -4,15 +4,16 @@ UnetVGG16Create=function () {
 
 
    library(keras)
-   use_condaenv("base",required = TRUE)
+  # use_condaenv("base",required = TRUE)
    library("reticulate")
-   conda_list <- conda_list()
-   print(conda_list)
-   Sys.sleep(5)
+    
+ #  conda_list <- conda_list()
+  # print(conda_list)
+  # Sys.sleep(5)
   
-  print("Process")
+ # print("Process")
 
-tf$config$list_physical_devices('GPU')
+#tf$config$list_physical_devices('GPU')
 library(tfdatasets)
 library(tidyverse)
 library(rsample)
@@ -20,7 +21,7 @@ library(reticulate)
 library(raster)
 library(unet)
 library(tensorflow)
- py_config() 
+ #py_config() 
 #######################################
 if (exists("custom_metric")==T) {
 dice_coef <<- 
