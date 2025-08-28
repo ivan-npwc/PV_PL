@@ -1,6 +1,140 @@
 https://heads0rtai1s.github.io/2021/02/25/gpu-setup-r-python-ubuntu/
 https://tensorflow.rstudio.com/install/local_gpu
 ######################################################### NVIDIA driver instalation
+
+
+  library(reticulate)
+
+  #####################################################################
+check_nvidia_driver <- function() {
+  message("🔍 Проверка драйвера NVIDIA...")
+  tryCatch({
+    driver_version <- system("nvidia-smi --query-gpu=driver_version --format=csv,noheader", intern = TRUE)
+    if (length(driver_version) > 0) {
+      message("✅ Драйвер NVIDIA обнаружен: ", driver_version)
+      return(TRUE)
+    } else {
+      message("❌ Драйвер NVIDIA не найден! Установите его вручную.")
+      return(FALSE)
+    }
+  }, error = function(e) {
+    message("❌ Ошибка: ", e$message)
+    return(FALSE)
+  })
+}
+
+
+
+###############################################################################
+check_gpu <- function() {
+  tryCatch({
+    gpus <- tf$config$list_physical_devices("GPU")
+    if (length(gpus) > 0) {
+      message("✅ GPU обнаружена: ", gpus[[1]]$name)
+      return(TRUE)
+    }
+    message("❌ GPU не обнаружена")
+    return(FALSE)
+  }, error = function(e) {
+    message("❌ Ошибка проверки GPU: ", e$message)
+    return(FALSE)
+  })
+}
+#############################
+   system("nvcc --version") 
+  check_nvidia_driver()
+  check_gpu()
+  
+  
+  
+  install_miniconda()
+
+  
+  
+  # Accept ToS for Anaconda's main channels
+conda_path <- file.path(Sys.getenv("LOCALAPPDATA"), "r-miniconda", "condabin", "conda.bat")
+system2(conda_path, args = c("tos", "accept", "--override-channels", "--channel", "https://repo.anaconda.com/pkgs/main"))
+system2(conda_path, args = c("tos", "accept", "--override-channels", "--channel", "https://repo.anaconda.com/pkgs/r"))
+system2(conda_path, args = c("tos", "accept", "--override-channels", "--channel", "https://repo.anaconda.com/pkgs/msys2"))
+
+# Создаем новое с numpy 1.x изначально
+conda_create(
+  envname = "tf_2_10_env",
+  python_version = "3.9"
+)
+  
+    py_pth = "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
+    use_python(py_pth, required = TRUE)
+    py_config() 
+  
+  
+   agipth="C:\\Users\\usato\\Downloads\\Metashape-2.2.1-cp37.cp38.cp39.cp310.cp311-none-win_amd64.whl"
+   pth= normalizePath(agipth,winslash = "/", mustWork=F)
+   py_install(pth, pip = TRUE)
+    py_run_string(paste0('import Metashape'))
+   #restart
+   
+    library(reticulate)
+    py_pth = "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
+    use_python(py_pth, required = TRUE)
+    py_config() 
+	
+
+
+    py_install("numpy==1.24.4")
+    py_install("tensorflow-gpu==2.10.0", pip = TRUE)
+   # tensorflow_gpu_pth = "C:\\Users\\usato\\Downloads\\tensorflow_gpu-2.10.0-cp39-cp39-win_amd64.whl"
+   # pth= normalizePath(tensorflow_gpu_pth,winslash = "/", mustWork=F)
+    #py_install(pth, pip = TRUE)
+    py_install("keras==2.10.0", pip = TRUE) 
+
+	
+	library(tensorflow)
+	tensorflow::tf_version()
+    
+	
+	
+	   system("nvcc --version") 
+       check_nvidia_driver()
+       check_gpu()
+  
+########################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 nvidia-smi
 
 cat /proc/driver/nvidia/version
@@ -83,7 +217,7 @@ tf$constant("Hello TensorFlow!")
 
 
 
-
+ "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-x86_64/cudnn-windows-x86_64-8.6.0.163_cuda11-archive.zip"
 
 
 
