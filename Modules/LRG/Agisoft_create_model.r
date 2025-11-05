@@ -1,21 +1,25 @@
 
     library(reticulate)
-    labelInput
-	bsname=basename(labelInput)
-    py_pth = "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
+ #   labelInput
+#	bsname=basename(labelInput)
+   py_pth = "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
     use_python(py_pth, required = TRUE)
 	#####################################
     crs = "EPSG:4326"   #32610 4326
-    imagefolder = paste0(labelInput,"\\Aerial_Images_For_Model")
-    outputpath = paste0(labelInput,"\\",bsname,"_Model.psx"); unlink(outputpath)
+#    imagefolder = paste0(labelInput,"\\Aerial_Images_For_Model")
+#    outputpath = paste0(labelInput,"\\",bsname,"_Model.psx"); unlink(outputpath)
 ##############################################################
-if (file.exists(list.files(imagefolder,full.names=T)[1])==T){
-   image_folder = normalizePath(imagefolder,winslash = "/", mustWork=F)
-   output_path = normalizePath(outputpath,winslash = "/", mustWork=F)
+#if (file.exists(list.files(imagefolder,full.names=T)[1])==T){
+
 
 ####################################################################
    # Функция для построения модели
     build_model <- function(image_folder, output_path,crs) {
+	
+	   image_folder = normalizePath(image_folder,winslash = "/", mustWork=F)
+       output_path = normalizePath(output_path,winslash = "/", mustWork=F)
+	
+	
       py_run_string(paste0('
 import Metashape
 import os
@@ -82,8 +86,8 @@ del doc
 '))
 }
 # Использование функции
-build_model(image_folder, output_path, crs)
-}
+#build_model(image_folder, output_path, crs)
+#}
 ###################################################################
 
 
