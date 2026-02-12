@@ -1,24 +1,26 @@
-# source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/LRG_PredsToPolygons.r")
-	 
+     # source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/LRG_PredsToPolygons_level_2.r")
+	   labelInput  = "/home/ivan/adata8tb/PV_DB/2023_H0052A_OPP/20230615_103330/20230615_103330_MAVIC2PRO_40m"
+
+
 	 library(sp)
      library(EBImage)
      library(raster)
      library(sf)
      library(dplyr)
 
-  #labelInput  = "/home/ivan/adata8tb/PV_DB/2023_H0052A_OPP/20230615_103330/20230615_103330_MAVIC2PRO_40m"
 
-  Species = "LRG"
+
+  Species = "LRG_level_2"
 
   ImgOcFin=NULL
   if(exists("SppBLB_fin")){remove(SppBLB_fin)}
   
   PRJ=CRS("+proj=longlat +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +no_defs")
   date1= substr(basename(labelInput),1,15)
-  RefTablePTH = file.path(labelInput, paste0(date1, ".csv"))
+#  RefTablePTH = file.path(labelInput, paste0(date1, ".csv"))
   predsDir= file.path(labelInput,"Predict","Preds")
   SpP_pth= file.path(labelInput,"Predict",paste0("SpP_",Species,"_",date1))
-  kmlPathSave= file.path(labelInput, "Predict",  paste0("SpP_",Species,"_",date1,".kml"))
+  kmlPathSave= file.path(labelInput, "Predict",  paste0("SpP_",Species,"_","level#2_",date1,".kml"));unlink(kmlPathSave)
       # dim(preds)=c(PredsRDS$DimPreds)
 #------------------------------------------------------------
   listPreds = list.files(predsDir,full.names=T,pattern= paste0("Preds_",Species))
@@ -26,8 +28,8 @@
  # if (file.exists(listPreds[1])==T){
   
   
-  RefTable1=read.csv(RefTablePTH)
-  RefTable=data.frame(imgName=RefTable1$imgName,west=RefTable1$west,east=RefTable1$east,south=RefTable1$south,north=RefTable1$north)
+ # RefTable1  = read.csv(RefTablePTH)
+ # RefTable=data.frame(imgName=RefTable1$imgName,west=RefTable1$west,east=RefTable1$east,south=RefTable1$south,north=RefTable1$north)
   for (f in 1:length(listPreds)) {
        PredsRDS=readRDS(listPreds[f])
        listImageBl=PredsRDS$listImageBl
@@ -37,34 +39,44 @@
 #resultBlob_tmp=NULL
 # i=4
 #resultBlob_tmp <- foreach(i = 1:length(listImageBl),.combine=rbind) %dopar% {
-   for (i in 1: length (listImageBl)) {
-     name=basename(listImageBl[i])
-	 RefSort=RefTable[basename(RefTable$imgName)==name,]
-  
-  if (length(RefSort[,1])==0) {stop(paste0("NO GEO Reference found fof     ", name))}
-	   msk=preds[i, , , ]
+   for (q in 1: length (listImageBl)) {
+     name=basename(listImageBl[q])
+     origImgPTH = listImageBl[q]
+     origImg = readImage(origImgPTH)
+     dim_orig =dim(origImg)
+
+     bs = tools::file_path_sans_ext(name)
+     splt = strsplit(bs,"_")
+
+     west = as.numeric(splt[[1]][3])
+     east = as.numeric(splt[[1]][4])
+     south = as.numeric(splt[[1]][1])
+     north = as.numeric(splt[[1]][2])
+
+     RefSort = data.frame(west =west,east =east,south=south,north=north)
 
 
-       msk=preds[i, , , ]
-	   msk=t(msk)
-	   msk=as.Image(msk)
-       msk = thresh(msk, 18, 18, 0.009)
-       msk <- fillHull(msk)
-       msk = opening(msk, makeBrush(11,shape='disc') ) # shape='Gaussian', sigma=50
-	   msk = erode(msk, makeBrush(11, shape='diamond'))
-	   msk = dilate(msk, makeBrush(13, shape='diamond'))
-	   msk = fillHull(msk)
-       msk = bwlabel(msk)
-	   msk=resize(msk,1024,1024)
-	   msk = dilate(msk, makeBrush(13, shape='diamond'))
-	   nmask4 = fillHull(msk)
-	   max(nmask4)
+       msk=preds[q, , , ]
+	  # msk1 =t(msk)
+	   msk2 =as.Image(msk)
+       msk3 =resize(msk2,256,256)
+       msk4 = thresh(msk3, 18, 18, 0.009)
+       msk5 <- fillHull(msk4)
+       msk6 = opening(msk5, makeBrush(11,shape='disc') ) # shape='Gaussian', sigma=50
+	   msk7 = erode(msk6, makeBrush(11, shape='diamond'))
+	   msk8 = dilate(msk7, makeBrush(13, shape='diamond'))
+	   msk9 = fillHull(msk8)
+       msk10 = bwlabel(msk9)
+	   msk11 =resize(msk10,dim_orig[1],dim_orig[2])
+	   #msk12 = dilate(msk11, makeBrush(13, shape='diamond'))
+	   msk13 = fillHull(msk11)
+	   max(msk13)
 
-	   max(nmask4)
+
 	#   display(msk)
    
-  if (max(nmask4)==0) next
-      oc=ocontour(nmask4)
+  if (max(msk13)==0) next
+      oc=ocontour(msk13)
     #   dim(preds)=c(PredsRDS$DimPreds)
 #------------------------------------------------------------	   
 ImgOc=NULL
@@ -77,32 +89,23 @@ for (o in 1: length(oc)){   #length oc is number blobs in the img
 	#	  plot(OrigImg)		  
 #		for (y in 1:length(oc)) {points(oc[[y]], col=2,cex=0.1)}		
 #-------------------------------------------------------------
-    NSdifStep=((RefSort$north-RefSort$south)*2)/1024 
-    WEdifStep= ((RefSort$east-RefSort$west)*2)/1024
-    NSdif50=(RefSort$north-RefSort$south)/2 
-    RefSort$north50=RefSort$north+NSdif50  
-    SNdif50=(RefSort$north-RefSort$south)/2
-    RefSort$south50=RefSort$south-SNdif50 
-    WEdiff50= (RefSort$east-RefSort$west)/2
-    RefSort$west50=RefSort$west-WEdiff50 
-    EWdiff50= (RefSort$east-RefSort$west)/2 
-    RefSort$east50=RefSort$east+EWdiff50 
-    Lonlim=c(RefSort$west50,RefSort$east50)
-    Latlim=c(RefSort$south50,RefSort$north50)
+    NSdifStep = (RefSort$north - RefSort$south) / dim_orig[2]
+     WEdifStep = (RefSort$east - RefSort$west) / dim_orig[1]
 #---------------------------------------------------------------
-    ImgOc$lon=((1024-ImgOc$y)*NSdifStep)+RefSort$south50 
-    ImgOc$lat=(ImgOc$x*WEdifStep)+RefSort$west50
+     ImgOc$lat = RefSort$west + (ImgOc$x * WEdifStep)
+     ImgOc$lon = RefSort$south + ((dim_orig[2] - ImgOc$y) * NSdifStep)  # y координата инвертирована
+
 	ImgOcFin=rbind(ImgOcFin,ImgOc)
 	
-print(paste0("IMGS ",i, "/", length(listImageBl), "  PREDS  ",f,"/",length(listPreds)  ))
+print(paste0("IMGS ",q, "/", length(listImageBl), "  PREDS  ",f,"/",length(listPreds)  ))
 
 }
 }
 #############################################################################################################################	
-  coordinates(ImgOcFin) <- ~ lat+lon
+   coordinates(ImgOcFin) <- ~ lat+lon
     srPolygons=list()
 	ListPol=unique(ImgOcFin$id)
-	
+
 for(s in 1:length(ListPol)){
 srPolygons[[s]]=Polygons(list(Polygon(ImgOcFin[ImgOcFin$id==ListPol[s],])),paste0(ListPol[s]))
 #print (paste0("Processing ", s,"/",length(ListPol), " blobs"))
@@ -125,31 +128,31 @@ polygons <- st_as_sf(SppBLB)
 
 valid_polygons1 <- st_make_valid(polygons)
 valid_polygons1 <- valid_polygons1[!st_is_empty(valid_polygons1), ]
-clean_polygons1 <- st_simplify(valid_polygons1, preserveTopology = TRUE, dTolerance = 0.001)
+clean_polygons1 <- st_simplify(valid_polygons1, preserveTopology = TRUE, dTolerance = 0.01)
 
 
-buffered <- st_buffer(clean_polygons1, dist = 0.001)
+buffered <- st_buffer(clean_polygons1, dist = 0.00001)
 merged_polygons <- st_union(buffered)
 
-final_result <- merged_polygons %>% 
-  st_collection_extract("POLYGON") %>% 
+final_result <- merged_polygons %>%
+  st_collection_extract("POLYGON") %>%
   st_cast("POLYGON")
-  
+
 valid_polygons <- st_make_valid(final_result)
 valid_polygons <- valid_polygons[!st_is_empty(valid_polygons), ]
 
  valid_polygons <- st_make_valid(valid_polygons)
 
-clean_polygons <- st_simplify(valid_polygons, preserveTopology = TRUE, dTolerance = 0.001)
-clean_polygons <- clean_polygons %>% st_cast("POLYGON") 
+clean_polygons <- st_simplify(valid_polygons, preserveTopology = TRUE, dTolerance = 0.01)
+clean_polygons <- clean_polygons %>% st_cast("POLYGON")
 
 areas <- st_area(clean_polygons)
 ar=as.numeric(areas)
-index=which(ar>0.15) #& ar < 0.5)
+index=which(ar>0.1) #& ar < 0.5)
 
 filter_pol = clean_polygons[index]
 
-buff <- st_buffer(filter_pol, dist = 0.1)
+#buff <- st_buffer(filter_pol, dist = 0.00001)
 
-write_sf(buff,kmlPathSave)
+write_sf(filter_pol,kmlPathSave)
 #}

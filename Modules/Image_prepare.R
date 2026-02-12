@@ -4,16 +4,18 @@
 	 library(parallel)
 	 library(doParallel)
 	 library(foreach)
-	 library(rgdal)
+	 library(sf)
+	 library(sp)
+	# library(rgdal)
 	 
 	#labelInput = "D:\\PV_DB\\2023_H0052A_OPP\\20230518_104633\\20230518_104633_MINI2_20m"
-     Batch=4000
+     Batch=500
 	 crs    <- CRS("+proj=longlat +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +no_defs") 
      date1=substr(basename(labelInput),1,15)
-     Tpth = paste0(labelInput,"\\", date1, ".csv")
-	 PredPolDir=paste0(labelInput, "\\Polygons\\Predict")
+     Tpth = file.path(labelInput, paste0( date1, ".csv"))
+	 PredPolDir=file.path(labelInput, "Polygons", "Predict")
 	 PredPolPth=list.files(PredPolDir, pattern="kml|shp", full.names=T)[1]
-	 KMLdir <- paste0(labelInput,"\\",date1)
+	 KMLdir <- file.path(labelInput, date1)
 	 
 if (dir.exists(KMLdir) == F) {stop("No kml OPP found")}  	 
 	 
@@ -24,11 +26,11 @@ if (dir.exists(KMLdir) == F) {stop("No kml OPP found")}
 #	 print("Done KMLprepare extra")
 #	 }
 	 
-	 KMLDir = paste0(labelInput,"\\",date1)
+	 KMLDir = file.path(labelInput,date1)
      table=read.csv(Tpth)
-     SaveDir=paste0(labelInput, "\\Predict\\TilesOverlap")
+     SaveDir=file.path(labelInput, "Predict", "TilesOverlap")
 	 unlink(SaveDir, recursive=T)
-	 dir.create(paste0(labelInput, "\\Predict"),showWarnings=F); dir.create(SaveDir,showWarnings=F)
+	 dir.create(file.path(labelInput, "Predict"),showWarnings=F); dir.create(SaveDir,showWarnings=F)
 ##############################################################################################
 
    CombinationOne=data.frame(lat= table$west, lon=table$south,imgName= table$imgName)
@@ -70,39 +72,40 @@ if (dir.exists(KMLdir) == F) {stop("No kml OPP found")}
 	  
    for (r in 1: Loops) {
    
-    cl <- makePSOCKcluster(detectCores (logical=FALSE)-2) 
+    cl <- makePSOCKcluster(detectCores (logical=FALSE)-15)
     clusterEvalQ(cl, {library(magick)})
     registerDoParallel(cl)
    
     exsts=list.files(SaveDir)
     NeedMore1=ImgIn[!ImgIn %in% exsts]
 	 if (length(NeedMore1)<Batch){Batch=length(NeedMore1)}
-	
+	 if (Batch == 0) {stopCluster(cl); break}
+
     foreach(i = 1:Batch) %dopar% {   #
-  ################
+  #####################################################
  #for (i in 1:Batch){
   
 	  selectRow <- table[table$imgName == NeedMore1[i],]
-      path=    paste0(KMLdir,"\\",strsplit(selectRow$imgName,"_")[[1]][1],"\\",strsplit(selectRow$imgName,"_")[[1]][2])
-	  CheckExists =	 paste0(SaveDir, "\\",basename(selectRow$imgName))
+      path=    file.path(KMLdir,strsplit(selectRow$imgName,"_")[[1]][1],strsplit(selectRow$imgName,"_")[[1]][2])
+	  CheckExists =	 file.path(SaveDir, basename(selectRow$imgName))
 
     #  if(file.exists(CheckExists)==F & file.exists(path)) {                                                                   
         img=image_read(path)  
         ################################################################################## CENTRAL WITH left right EARS
 	   # lpi<- paste0(selectRow$rightName)
-		lpi<- paste0(KMLdir,"\\",strsplit(selectRow$rightName,"_")[[1]][1],"\\",strsplit(selectRow$rightName,"_")[[1]][2])
+		lpi<- file.path(KMLdir,strsplit(selectRow$rightName,"_")[[1]][1], strsplit(selectRow$rightName,"_")[[1]][2])
         if (file.exists(lpi)==T) {left.img= image_read(lpi)} else {left.img= image_blank(512,512,color = "white")}
 
        #rimg<-paste0(selectRow$leftName)
-	    rimg<- paste0(KMLdir,"\\",strsplit(selectRow$leftName,"_")[[1]][1],"\\",strsplit(selectRow$leftName,"_")[[1]][2])
+	    rimg<- file.path(KMLdir ,strsplit(selectRow$leftName,"_")[[1]][1],strsplit(selectRow$leftName,"_")[[1]][2])
         if (file.exists(rimg)==T){right.img=image_read(rimg)} else {right.img=  image_blank(512,512,color = "white")}
         ########
         #uimg<-paste0(selectRow$upName)                                                           # prepare up img for next up line level
-        uimg<-paste0(KMLdir,"\\",strsplit(selectRow$upName,"_")[[1]][1],"\\",strsplit(selectRow$upName,"_")[[1]][2])
+        uimg<-file.path(KMLdir, strsplit(selectRow$upName,"_")[[1]][1], strsplit(selectRow$upName,"_")[[1]][2])
 	    if (file.exists(uimg)==T) {up.img=image_read(uimg)} else{up.img= image_blank(512,512,color = "white")}  
         ##########
         #dimg = paste0(selectRow$downName)                                                          # prepare down img for next down line level
-        dimg = paste0(KMLdir,"\\",strsplit(selectRow$downName,"_")[[1]][1],"\\",strsplit(selectRow$downName,"_")[[1]][2])
+        dimg = file.path(KMLdir, strsplit(selectRow$downName,"_")[[1]][1], strsplit(selectRow$downName,"_")[[1]][2])
 		if (file.exists(dimg)==T) {down.img=image_read(dimg)} else {down.img=  image_blank(512,512,color = "white")}
         
         leftCrop=image_crop(left.img, "256x512+256")
@@ -118,10 +121,10 @@ if (dir.exists(KMLdir) == F) {stop("No kml OPP found")}
           UpRight=  image_blank(512,512,color = "white")
         } else {
 	      # ulimg = paste0( Uplevel$rightName) 
-		    ulimg =  paste0(KMLdir,"\\",strsplit(Uplevel$rightName,"_")[[1]][1],"\\",strsplit(Uplevel$rightName,"_")[[1]][2])
+		    ulimg =  file.path(KMLdir, strsplit(Uplevel$rightName,"_")[[1]][1], strsplit(Uplevel$rightName,"_")[[1]][2])
           if (file.exists(ulimg)==T) {UpLeft=image_read(ulimg)} else{UpLeft= image_blank(512,512,color = "white")}  
 	      # urimg=paste0(Uplevel$leftName)
-		   urimg = paste0(KMLdir,"\\",strsplit(Uplevel$leftName,"_")[[1]][1],"\\",strsplit(Uplevel$leftName,"_")[[1]][2])
+		   urimg = file.path(KMLdir ,strsplit(Uplevel$leftName,"_")[[1]][1], strsplit(Uplevel$leftName,"_")[[1]][2])
           if (file.exists(urimg)==T) {UpRight=image_read(urimg)} else{UpRight=  image_blank(512,512,color = "white")}
 		  }
         UplevelImg=image_append(c(UpLeft,up.img,UpRight))
@@ -137,10 +140,10 @@ if (dir.exists(KMLdir) == F) {stop("No kml OPP found")}
           DownRight=  image_blank(512,512,color = "white")
         } else { 
 	      # dlimg = paste0( Downlevel$rightName) 
-		  dlimg = paste0(KMLdir,"\\",strsplit(Downlevel$rightName,"_")[[1]][1],"\\",strsplit(Downlevel$rightName,"_")[[1]][2])
+		  dlimg = file.path(KMLdir ,strsplit(Downlevel$rightName,"_")[[1]][1], strsplit(Downlevel$rightName,"_")[[1]][2])
           if (file.exists(dlimg)==T) {DownLeft=image_read(dlimg)} else{DownLeft=  image_blank(512,512,color = "white")}
 	       #drimg = paste0(Downlevel$leftName)
-		    drimg = paste0(KMLdir,"\\",strsplit(Downlevel$leftName,"_")[[1]][1],"\\",strsplit(Downlevel$leftName,"_")[[1]][2])
+		    drimg = file.path(KMLdir ,strsplit(Downlevel$leftName,"_")[[1]][1] ,strsplit(Downlevel$leftName,"_")[[1]][2])
           if (file.exists(drimg)==T) {DownRight=image_read(drimg)} else {DownRight=  image_blank(512,512,color = "white")}
         }
         DownlevelImg=image_append(c(DownLeft,down.img,DownRight))
@@ -151,10 +154,10 @@ if (dir.exists(KMLdir) == F) {stop("No kml OPP found")}
         leftRightUpDownJoin=image_append(c(leftRightUpJoin,DownCrop2), stack = T)
         image_write(leftRightUpDownJoin,CheckExists,format="jpg")
       }
-	
+	 stopCluster(cl)
 	 
     }
- stopCluster(cl)
+
  # } 
  # }   
 

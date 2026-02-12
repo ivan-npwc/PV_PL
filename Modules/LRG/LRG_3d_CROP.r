@@ -36,10 +36,11 @@ PolPth <- paste0(labelInput, "\\Predict\\SpP_LRG_", date1, ".kml")
 site_3d_gps_pth = paste0(labelInput,"\\",bsname,"_Model.ply")
 dir_site_model =  paste0(labelInput,"\\",bsname,"_Model")
  if (dir.exists(dir_site_model)){site_3d_gps_pth=list.files(dir_site_model, full.names=T)} 
-  
+  if (file.exists(PolPth)==T){
   for (y in 1: length(site_3d_gps_pth)){
 
 if (file.exists(site_3d_gps_pth[y])==T){
+
 ########################################################################
 # Read polygon from KML file and transform to target CRS
 poly_sf <- st_read(PolPth)
@@ -123,6 +124,7 @@ filtered_mesh$normals <- site_3d_local$normals[, valid_indices, drop = FALSE]
  shade3d(filtered_mesh)
  writePLY(pthSave)
 close3d()
+}
 }
 }
 ###########

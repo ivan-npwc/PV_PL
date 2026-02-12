@@ -1,15 +1,28 @@
 
+
+   #source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/Agisoft_create_model.r")
+
+
     library(reticulate)
-    labelInput
+   # labelInput = "/mnt/adata8tb/PV_DB/2024_H0470_OPP_stop(to mach foto)/20240919_110729/20240919_110729_M3T_20M"
 	bsname=basename(labelInput)
-    py_pth = "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
+
+        py_pth_win =  "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
+	py_pth_unx = "/home/ivan/anaconda3/bin/python"
+	
+	sys_info <- Sys.info()
+	if (sys_info["sysname"] == "Windows") {py_pth=py_pth_win}
+	if (sys_info["sysname"] == "Linux")     {py_pth=py_pth_unx}
+	
     use_python(py_pth, required = TRUE)
 	#####################################
     crs = "EPSG:4326"   #32610 4326
-    imagefolder = paste0(labelInput,"\\Aerial_Images_For_Model")
-    outputpath = paste0(labelInput,"\\",bsname,"_Model.psx"); unlink(outputpath)
+  #  imagefolder = file.path(labelInput,"Aerial_Images_For_Model")
+  #  outputpath = file.path(labelInput,  paste0(bsname,"_Model.psx")); unlink(outputpath)
+   imagefolder = file.path(labelInput,"Predict","WATER_MASK")
+    outputpath = file.path(labelInput,  paste0(bsname,"_Model_no_water.psx")); unlink(outputpath)
 ##############################################################
-if (file.exists(list.files(imagefolder,full.names=T)[1])==T){
+if (file.exists(list.files(imagefolder,full.names=T)[1])==F){print(paste0("SKIP    ", labelInput,"   NO AERILA IMAGES FOUND"));   next}
    image_folder = normalizePath(imagefolder,winslash = "/", mustWork=F)
    output_path = normalizePath(outputpath,winslash = "/", mustWork=F)
 
@@ -65,7 +78,7 @@ chunk.buildDepthMaps(downscale=1, filter_mode=Metashape.MildFiltering, max_neigh
 chunk.buildModel( 
 source_data=Metashape.DepthMapsData,  #  DepthMapsData PointCloudData
 surface_type=Metashape.Arbitrary, #Surface type in [Arbitrary, HeightField]
-interpolation=Metashape.EnabledInterpolation, 
+interpolation=Metashape.EnabledInterpolation,
 face_count=Metashape.CustomFaceCount,
 face_count_custom=50000000,
 vertex_colors=True,
@@ -83,7 +96,7 @@ del doc
 }
 # Использование функции
 build_model(image_folder, output_path, crs)
-}
+
 ###################################################################
 
 

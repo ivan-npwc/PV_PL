@@ -2,12 +2,14 @@
 	require(sf)
 	require(EBImage)
 	library(XML)
-	
+	library(terra)
+	library(raster)
+	library(dplyr)
   
 	#labelInput = "D:\\PV_DB\\2023_H0052A_OPP\\20230518_104633\\20230518_104633_MINI2_20m" #"D:\\PV_DB\\2023_H0054_OPP\\20230503_082013\\20230503_082013_MINI3PRO_20m_DUMMY"
 	date1=substr(basename(labelInput),1,15)
-	pth_table=paste0(labelInput,"\\",date1,".csv")
-    KMLdir<<-paste0(labelInput,"\\",date1)
+	pth_table=file.path(labelInput, paste0(date1,".csv"))
+    KMLdir<<-file.path(labelInput, date1)
 	doc.kml=list.files(KMLdir, pattern=".kml", full.names=T)
 	 
 	if(dir.exists (KMLdir)==F) {stop("No kml OPP found")}
@@ -35,11 +37,11 @@ GetTableKml_Dir=function(KMLdir) {
     subdir=pathFolders[q1]
     imgList= list.files(subdir) 
     if (length(imgList)>10) {
-      doc.kml=paste0(subdir, "\\","doc.kml")
+      doc.kml=file.path(subdir,"doc.kml")
       geo.infoALL<<-GetTableKml(doc.kml)
       geo.info=geo.infoALL#[nchar(as.character(geo.infoALL$image))=="10",] # hier we sort image f livel only
       fLevelImg=geo.info$image
-      fLevelImgPath=paste0(subdir,"\\",fLevelImg)
+      fLevelImgPath=file.path(subdir,fLevelImg)
       KMLimg=rbind(KMLimg, data.frame(fLevelImgPath,geo.info,subdir))
     }}
   KMLimg

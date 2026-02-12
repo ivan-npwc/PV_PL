@@ -1,13 +1,30 @@
 
 
-
+vcgSample_type = "pd"
 
 mesh_reconstract=function(mesh,ball_radius=0.02,num_samples=10000){
-  smpls <- vcgSample(mesh, SampleNum = num_samples, type = "pd")
+
+   #mesh=sl; ball_radius=0.02;num_samples=10000
+ # 
+
+   #
+    mesh <- vcgQEdecim(mesh, tarface = 2000)
+    mesh <- vcgUpdateNormals(mesh)
+	#mesh <- vcgSmooth (mesh,type = "laplace", iteration = 20)
+    #mesh <- vcgUpdateNormals(mesh)
+#	vcgPlyWrite(mesh, "mesh.ply")
+	
+	
+    smpls <- vcgSample(mesh, SampleNum = num_samples, type = vcgSample_type, geodes = FALSE) #km, mc pd
+
+
   reconstract <- vcgBallPivoting(smpls, radius = ball_radius)
+ 
   reconstract=vcgIsolated(reconstract)
   reconstract <- vcgUpdateNormals(reconstract)
-  return(reconstract)
+ # vcgPlyWrite(reconstract, "mesh.ply")
+
+ return(reconstract)
 
 }
 ##############################################
@@ -43,7 +60,7 @@ pl=function(mesh,col=1,alpha = 0.5){shade3d(mesh, color=col, alpha=alpha) } #bbo
 ############################################################################
 seal_pca=function(mesh){
   # mesh=  sl6
-   smpls <- vcgSample(mesh, SampleNum = 10000, type = "pd")
+   smpls <- vcgSample(mesh, SampleNum = 10000, type = vcgSample_type,geodes = FALSE)
    pca <- prcomp(smpls, center = TRUE, scale. = FALSE)
    pca_mesh <- vcgBallPivoting(x = pca$x, radius=0.02)
    return(pca_mesh)
@@ -146,8 +163,9 @@ options(warn = -1)
 #############################################################################
  frontalis_slice_filter <- function(mesh, ball_radius = 0.02, num_samples = 10000, num_slices = 10) { # up to down
 
+#mesh=pca_mesh ; ball_radius = 0.02; num_samples = 10000; num_slices = 10
     #  Сэмплирование точек на поверхности меша
-  smpls <- vcgSample(mesh, SampleNum = num_samples, type = "pd")
+  smpls <- vcgSample(mesh, SampleNum = num_samples, type = vcgSample_type,geodes = FALSE)
   # 4. Рассчитываем параметры для срезов
   z_range <- range(smpls[,3])
   alt_range <- diff(z_range)
@@ -166,10 +184,12 @@ options(warn = -1)
      # Выбираем точки в текущем слое
      slice_points <- smpls[smpls[,3] > lower_bound & smpls[,3] < upper_bound, ]
      # Создаем меш для слоя
-     if (nrow(slice_points) > 3) {  # Проверка на достаточное количество точек
+     if (nrow(slice_points) < 3) next  # Проверка на достаточное количество точек
       slice_mesh <- vcgBallPivoting(x = slice_points, radius = ball_radius)
+	  #if (ncol(slice$it) < 1) next
 	 # if (e>3){slice_isolated <- vcgIsolated(slice_mesh)} else{slice_isolated=slice_mesh}
        slice_isolated <- vcgIsolated(slice_mesh)
+	 # vcgPlyWrite(slice_isolated, paste0(e,"_slice.ply"))
 	   
         if (is.null(finmesh)) {
           finmesh <- slice_isolated
@@ -177,15 +197,16 @@ options(warn = -1)
           finmesh <- mergeMeshes(finmesh, slice_isolated)
         }
 		
-    }
+  
     }
 
 	return(finmesh)
   }
 ###############################################################
 axial_slice_filter =function(mesh,num_samples=10000, num_slices=20,ball_radius = 0.02){   # from head to tail
-   #mesh=sl8
-    smpls <- vcgSample(mesh, SampleNum = num_samples, type = "pd")
+   #mesh=pca_mesh ; ball_radius = 0.02; num_samples = 10000; num_slices = 10
+   #
+    smpls <- vcgSample(mesh, SampleNum = num_samples, type = vcgSample_type,geodes = FALSE)
     x_range <- range(smpls[,1])
     	#z_r = range(smpls[,3])
 	  #  alt_r = abs(z_r[1]) + abs(z_r[2])
@@ -203,8 +224,12 @@ axial_slice_filter =function(mesh,num_samples=10000, num_slices=20,ball_radius =
 
     # Выбираем точки в текущем слое
       slice_points <- smpls[smpls[,1] > lower_bound & smpls[,1] < upper_bound, ]
+	   if (nrow(slice_points) < 5) next
 	  slice=vcgBallPivoting(slice_points,radius=ball_radius)
+    # if (ncol(slice$it) < 1) next
+	  
 	  slice=vcgIsolated(slice)
+	#vcgPlyWrite(slice, paste0(e,"_slice.ply"))
 	    # z_range <- range(slice_points[,3])
         # alt_range <- abs(z_range[1]) + abs(z_range[2])
 		 
@@ -221,8 +246,8 @@ return ( mesh_out)
 }
 #####################################################
 saggital_slice_filter =function(mesh,num_samples=10000, num_slices=20, ball_radius = 0.02){ # from side to side
- #mesh=sl8
-    smpls <- vcgSample(mesh, SampleNum = num_samples, type = "pd")
+  #mesh=pca_mesh ; ball_radius = 0.02; num_samples = 10000; num_slices = 10
+    smpls <- vcgSample(mesh, SampleNum = num_samples, type = vcgSample_type,geodes = FALSE)
     y_range <- range(smpls[,2])
     #	z_r = range(smpls[,3])
 	  #  alt_r = abs(z_r[1]) + abs(z_r[2])
@@ -240,8 +265,11 @@ saggital_slice_filter =function(mesh,num_samples=10000, num_slices=20, ball_radi
 
     # Выбираем точки в текущем слое
       slice_points <- smpls[smpls[,2] > lower_bound & smpls[,2] < upper_bound, ]
+	  if (nrow(slice_points) < 5) next
 	  slice=vcgBallPivoting(slice_points,radius=ball_radius)
+	  #if (ncol(slice$it) < 1) next
 	  slice=vcgIsolated(slice)
+	 # 	vcgPlyWrite(slice, paste0(e,"_slice.ply"))
 	     z_range <- range(slice_points[,3])
          alt_range <- abs(z_range[1]) + abs(z_range[2])
 		 
@@ -318,7 +346,7 @@ get_spine=function(mesh,num_slices=50){
   # mesh=sl_m6
   # num_slices=20
    
-  smpls <- vcgSample(mesh, SampleNum = 10000, type = "pd")
+  smpls <- vcgSample(mesh, SampleNum = 10000, type = vcgSample_type,geodes = FALSE)
     x_range <- range(smpls[,1])
     	#z_r = range(smpls[,3])
 	  #  alt_r = abs(z_r[1]) + abs(z_r[2])
@@ -348,7 +376,7 @@ get_chest=function(mesh,num_slices=50){
    # mesh=sl_m3
   # num_slices=50
 
- smpls <- vcgSample(mesh, SampleNum = 10000, type = "pd")
+ smpls <- vcgSample(mesh, SampleNum = 10000, type = vcgSample_type,geodes = FALSE)
     y_range <- range(smpls[,2])
     #	z_r = range(smpls[,3])
 	  #  alt_r = abs(z_r[1]) + abs(z_r[2])
@@ -468,7 +496,7 @@ new_mesh <- list(
 )
 class(new_mesh) <- "mesh3d"
 
-  smpls <- vcgSample(new_mesh, SampleNum = 5000, type = "pd")
+  smpls <- vcgSample(new_mesh, SampleNum = 5000, type = vcgSample_type,geodes = FALSE)
  
   smpls[,3] =  smpls[,3] + alt_correct
   reconstract <- vcgBallPivoting(smpls, radius = 0.02)
@@ -502,13 +530,13 @@ class(new_mesh) <- "mesh3d"
 #  vertices <- vert2points(seal_mesh)
 #  filter_verts = vertices[keep_verts,]
   
-    clusters <- dbscan(trimmed_seal_pts, eps = 0.01, minPts = 3,)$cluster
+   # clusters <- dbscan(trimmed_seal_pts, eps = 0.01, minPts = 3,)$cluster
     # Считаем размер каждого кластера
-    cluster_sizes <- table(clusters)
+  #  cluster_sizes <- table(clusters)
     # Исключаем самый большой кластер (внешний край)
-     main_cluster <- as.integer(names(which.max(cluster_sizes)))
-     small_holes <- clusters != main_cluster & clusters != 0  # 0 — шум в DBSCAN
-     br_vr=trimmed_seal_pts[!small_holes,]
+  #   main_cluster <- as.integer(names(which.max(cluster_sizes)))
+  #   small_holes <- clusters != main_cluster & clusters != 0  # 0 — шум в DBSCAN
+   #  br_vr=trimmed_seal_pts # [!small_holes,]
   
 
   
@@ -516,8 +544,16 @@ class(new_mesh) <- "mesh3d"
  #  filter_mesh <- vcgUpdateNormals(filter_mesh)
    
    
-   trimmed_seal_mesh <- vcgBallPivoting(br_vr,radius=0.02)
-   
+   trimmed_seal_mesh <- vcgBallPivoting(trimmed_seal_pts,radius=0.02)
+  # vcgPlyWrite(trimmed_seal_mesh, "mesh.ply")
+ 
+ 
+   #smpls <- vcgSample(trimmed_seal_mesh, SampleNum = num_samples, type = vcgSample_type, geodes = FALSE) #km, mc pd
+
+
+ # reconstract <- vcgBallPivoting(smpls, radius = ball_radius)
+ 
+   #	vcgPlyWrite(reconstract, "mesh.ply") 
  #  trimmed_seal2 = trim_seal_by_ground (seal_mesh=sl12, surface_mesh=bottom, above = F)
 #		     # check and fix  
 #			range1= diff(range(vert2points(trimmed_seal1)[,3]))
@@ -527,8 +563,7 @@ class(new_mesh) <- "mesh3d"
    
    return(trimmed_seal_mesh)
    
-   
-   
+
    
  #  pl(surface_mesh)
  #  pl(seal_mesh,4)
@@ -561,7 +596,7 @@ class(new_mesh) <- "mesh3d"
     scale_factor = scales[i]
 	n_points <- ifelse(i > 11, round(initial_points *  exp(-i/20)), initial_points) 
     scaled_mesh$vb[1:3, ] <- scale_factor * mesh$vb[1:3, ]
-    new_points <- vcgSample(scaled_mesh, SampleNum =n_points, type = "km") # mc pd
+    new_points <- vcgSample(scaled_mesh, SampleNum =n_points, type = vcgSample_type, geodes = FALSE) # mc pd
     result_points <- rbind(result_points, new_points)
     print(paste0(i,"     scale_factor   ",scale_factor ))
 
@@ -630,12 +665,12 @@ voxel_to_mesh=function(voxel_array){
   voxel_size=0.01
   mesh <- vcgIsosurface(voxel_array, threshold = 1)
   mesh$vb[1:3, ] <- voxel_size * mesh$vb[1:3, ]
-  points <- vcgSample(mesh, SampleNum =10000, type = "pd") #,MCsamp=100,strict=T,geodes=T,iter.max=10
+  points <- vcgSample(mesh, SampleNum =10000, type = vcgSample_type, geodes = FALSE) #,MCsamp=100,strict=T,geodes=T,iter.max=10
 
 
  ashape <- ashape3d(points, alpha = 0.45)
  alpha_mesh <- as.mesh3d(ashape)
-  smpls <- vcgSample(alpha_mesh, SampleNum = 10000, type = "pd")
+  smpls <- vcgSample(alpha_mesh, SampleNum = 10000, type = vcgSample_type, geodes = FALSE)
   reconstract <- vcgBallPivoting(smpls, radius = 0.04)
   reconstract=vcgIsolated(reconstract)
   reconstract <- vcgUpdateNormals(reconstract)
@@ -668,10 +703,14 @@ clip_mesh_bottom=function(mesh,percent=15){
 #####################################################################
 merg_seal_ground <- function(seal_mesh, ground_mesh) {
 
- #  seal_mesh =sl17 
-#   ground_mesh = bottom1
+ #  seal_mesh =sl16 
+#   ground_mesh = ground_mesh
 
    ground_pts=vert2points(ground_mesh)
+   #seal_pts=vert2points(seal_mesh)
+   #merg_pts = rbind(ground_pts,seal_pts)
+   #merg_mesh <- vcgBallPivoting(merg_pts,radius=0.02)
+   #vcgPlyWrite(merg_mesh, "merg_mesh.ply") 
    inside <- Rvcg::vcgClost(ground_mesh, seal_mesh, sign = TRUE)$quality > 0
    trimmed_ground_pts <- ground_pts[inside, ]
    trimmed_ground_mesh <- vcgBallPivoting(trimmed_ground_pts,radius=0.02)
@@ -743,7 +782,7 @@ get_ground=function(mesh){
 ###################################################################
 pca_to_orig=function(meshBase,meshPCA){
      #meshBase=sl6
-   smpls <- vcgSample(meshBase, SampleNum = 10000, type = "pd")
+   smpls <- vcgSample(meshBase, SampleNum = 10000, type = vcgSample_type, geodes = FALSE)
    pca <- prcomp(smpls, center = TRUE, scale. = FALSE)
 
    pca_center=pca$center
@@ -768,7 +807,7 @@ measurement_to_orig=function(meshBase,measurement){
    
   # meshBase=sl6
   #measurement=spine
-   smpls <- vcgSample(meshBase, SampleNum = 10000, type = "pd")
+   smpls <- vcgSample(meshBase, SampleNum = 10000, type = vcgSample_type, geodes = FALSE)
    pca <- prcomp(smpls, center = TRUE, scale. = FALSE)
 
    pca_center=pca$center
@@ -918,7 +957,7 @@ closest <- vcgClostKD(
 
 
  # Создаем плотную выборку точек на поверхности меша
-  mesh_samples <- vcgSample(mesh, SampleNum = 10000)
+  mesh_samples <- vcgSample(mesh, SampleNum = 10000, geodes = FALSE)
   
   # Строим KD-дерево для меша
   nn <- nn2(mesh_samples, points, k = k)

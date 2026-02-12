@@ -1,16 +1,28 @@
-
-    library(reticulate)
+    
+	
+	# source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/Agisoft_export_model.r")
 	library(sf) 
-   # labelInput ="D:\\PV_DB/2023_H0054_OPP/20230503_082013/20230503_082013_MINI3PRO_20m_DUMMY/"
+    ####################################3
+    library(reticulate)
+   # labelInput = "/media/ivan/pv/PV_DB/2023_H0052A_OPP/20230518_104633/20230518_104633_MINI2_20m"
 	bsname=basename(labelInput)
-    py_pth = "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
+
+    py_pth_win =  "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
+	py_pth_unx = "/home/ivan/anaconda3/bin/python"
+	
+	sys_info <- Sys.info()
+	if (sys_info["sysname"] == "Windows") {py_pth=py_pth_win}
+	if (sys_info["sysname"] == "Linux")     {py_pth=py_pth_unx}
+	
     use_python(py_pth, required = TRUE)
+	#####################################
+	
     crs = "EPSG:32610"   #32610 4326
   
-    outputpath = paste0(labelInput,"\\",bsname,"_Model.psx")
-	DirPolPred = paste0(labelInput,"Polygons\\Predict")
-    outputply = paste0(labelInput,"\\",bsname,"_Model.ply")
-	outputdir =  paste0(labelInput,"\\",bsname,"_Model"); unlink(outputdir,recursive=T); dir.create(outputdir)
+    outputpath = file.path(labelInput,  paste0(bsname,"_Model_no_water.psx"))
+	DirPolPred = file.path(labelInput,"Polygons","Predict")
+    #outputply = file.path(labelInput, paste0(bsname,"_Model.ply"))
+	outputdir =  file.path(labelInput, paste0(bsname,"_Model"))            ; unlink(outputdir,recursive=T); dir.create(outputdir)
 	PthPolPred= list.files(DirPolPred, full.names=T)
 	
 	
@@ -95,7 +107,7 @@ for (i in 1: length(Pols)){
  
  pol=Pols[i]
   psx_path
-  output_ply=paste0(outputdir,"\\",bsname,"_Model_", pol  ,".ply")
+  output_ply=file.path(outputdir,paste0(bsname,"_Model_", pol  ,".ply"))
   coords_str <- paste(apply(Pols1[Pols1$PolName==pol,], 1, function(x) 
         paste0("[", x[1], ",", x[2], "]")), collapse=",")
 

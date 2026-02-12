@@ -1,13 +1,22 @@
 
+   ####################################3
     library(reticulate)
-    labelInput
+   # labelInput = "/media/ivan/pv/PV_DB/2023_H0052A_OPP/20230518_104633/20230518_104633_MINI2_20m"
 	bsname=basename(labelInput)
-    py_pth = "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
+
+    py_pth_win =  "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
+	py_pth_unx = "/home/ivan/anaconda3/bin/python"
+	
+	sys_info <- Sys.info()
+	if (sys_info["sysname"] == "Windows") {py_pth=py_pth_win}
+	if (sys_info["sysname"] == "Linux")     {py_pth=py_pth_unx}
+	
     use_python(py_pth, required = TRUE)
+	#####################################
 
   
-    outputpath = paste0(labelInput,"\\",bsname,"_Model.psx")
-    outputReport1 = paste0(labelInput,"\\",bsname,"_Report.pdf")
+    outputpath = file.path(labelInput,paste0(bsname,"_Model.psx"))
+    outputReport1 = file.path(labelInput,paste0(bsname,"_Report.pdf"))
 if (file.exists(outputpath)==T){		
 ##############################################################
    psx_path = normalizePath(outputpath,winslash = "/")

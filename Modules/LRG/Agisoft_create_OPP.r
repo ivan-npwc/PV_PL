@@ -1,12 +1,24 @@
 
+   #source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/Agisoft_create_OPP.r")
+  #   labelInput = "/mnt/adata8tb/PV_DB/2023_H0055_OPP/20230503_111132/20230503_111132_MINI3PRO_20m"
+    ####################################3
     library(reticulate)
-    labelInput #= "D:\\PV_DB\\2023_H0052A_OPP\\20230518_104633\\20230518_104633_MINI2_20m"
 	bsname=basename(labelInput)
-    py_pth = "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
+    ####################################3
+
+    py_pth_win =  "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"
+	py_pth_unx = "/home/ivan/anaconda3/bin/python"
+	
+	sys_info <- Sys.info()
+	if (sys_info["sysname"] == "Windows") {py_pth=py_pth_win}
+	if (sys_info["sysname"] == "Linux")     {py_pth=py_pth_unx}
+	
     use_python(py_pth, required = TRUE)
+	#####################################
+	
+	
     crs = "EPSG:32610"   #32610 4326
-  
-    outputpath = paste0(labelInput,"\\",bsname,"_Model.psx")
+    outputpath = file.path(labelInput, paste0(bsname,"_Model_no_water.psx"))
     psx_path = normalizePath(outputpath,winslash = "/")
 	
 if (file.exists(outputpath)==T){	
