@@ -1,6 +1,6 @@
 
-   #source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/Agisoft_exportsealcrop_OPP.r")
-   # labelInput = "/home/ivan/adata8tb/PV_DB/2023_H0052A_OPP/20230615_103330/20230615_103330_MAVIC2PRO_40m"
+   # source("C:\\Users\\usato\\SSL_UI\\GIT\\PV_PL\\Modules\\LRG\\Agisoft_exportsealcrop_OPP.r")
+   #labelInput=  "C:\\Users\\usato\\SSL_UI\\PV_UI\\2023_H0068C_OPP\\20230720_111049\\20230720_111049_MINI2_20m"
     ####################################3
     library(reticulate)
     library(EBImage)
@@ -16,7 +16,7 @@
 
     use_python(py_pth, required = TRUE)
 	#####################################
-	Species = "LRG"
+	Species           <- "LRG_level_1"
     date1= substr(basename(labelInput),1,15)
     crs = "EPSG:32610"   #32610 4326
     outputpath = file.path(labelInput, paste0(bsname,"_Model_no_water.psx"))

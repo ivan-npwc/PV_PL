@@ -1,4 +1,7 @@
-# source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/LRG_PredsToPolygons.r")
+       
+	# source("/mnt/c/Users/usato/SSL_UI/GIT/PV_PL/Modules/LRG/LRG_PredsToPolygons.r")     
+    # labelInput= "/mnt/c/Users/usato/SSL_UI/PV_UI/2023_H0068C_OPP/20230720_111049/20230720_111049_MINI2_20m" 
+	 
 	 
 	 library(sp)
      library(EBImage)
@@ -6,9 +9,9 @@
      library(sf)
      library(dplyr)
 
-  #labelInput  = "/home/ivan/adata8tb/PV_DB/2023_H0052A_OPP/20230615_103330/20230615_103330_MAVIC2PRO_40m"
 
-  Species = "LRG"
+
+    Species           <- "LRG_level_1"
 
   ImgOcFin=NULL
   if(exists("SppBLB_fin")){remove(SppBLB_fin)}
@@ -21,7 +24,7 @@
   kmlPathSave= file.path(labelInput, "Predict",  paste0("SpP_",Species,"_",date1,".kml"))
       # dim(preds)=c(PredsRDS$DimPreds)
 #------------------------------------------------------------
-  listPreds = list.files(predsDir,full.names=T,pattern= paste0("Preds_",Species))
+  listPreds = list.files(predsDir,full.names=T,pattern= Species)
   
  # if (file.exists(listPreds[1])==T){
   
@@ -128,8 +131,8 @@ valid_polygons1 <- valid_polygons1[!st_is_empty(valid_polygons1), ]
 clean_polygons1 <- st_simplify(valid_polygons1, preserveTopology = TRUE, dTolerance = 0.001)
 
 
-buffered <- st_buffer(clean_polygons1, dist = 0.001)
-merged_polygons <- st_union(buffered)
+#buffered <- st_buffer(clean_polygons1, dist = 0.001)
+merged_polygons <- st_union(clean_polygons1)
 
 final_result <- merged_polygons %>% 
   st_collection_extract("POLYGON") %>% 
@@ -143,11 +146,12 @@ valid_polygons <- valid_polygons[!st_is_empty(valid_polygons), ]
 clean_polygons <- st_simplify(valid_polygons, preserveTopology = TRUE, dTolerance = 0.001)
 clean_polygons <- clean_polygons %>% st_cast("POLYGON") 
 
+###############
 areas <- st_area(clean_polygons)
 ar=as.numeric(areas)
-index=which(ar>0.15) #& ar < 0.5)
-
+index=which(ar>0.05) #& ar < 0.5)
 filter_pol = clean_polygons[index]
+#########
 
 buff <- st_buffer(filter_pol, dist = 0.1)
 

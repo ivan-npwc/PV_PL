@@ -9,17 +9,17 @@ if (!require("reticulate")) {install.packages("reticulate"); library("reticulate
 if (!require("parallel")) {install.packages("parallel"); library("parallel")}
 if (!require("doParallel")) {install.packages("doParallel"); library("doParallel")}
 if (!require("foreach")) {install.packages("foreach"); library("foreach")}
-if (!require("tensorflow")) {install.packages("tensorflow"); library("tensorflow")}
-if (!require("tfdatasets")) {install.packages("tfdatasets"); library("tfdatasets")}
+#if (!require("tensorflow")) {install.packages("tensorflow"); library("tensorflow")}
+#if (!require("tfdatasets")) {install.packages("tfdatasets"); library("tfdatasets")}
 if (!require("purrr")) {install.packages("purrr"); library("purrr")}
 if (!require("sp")) {install.packages("sp"); library("sp")}
-if (!require("rgdal")) {install.packages("rgdal"); library("rgdal")}
+#if (!require("rgdal")) {install.packages("rgdal"); library("rgdal")}
 if (!require("geosphere")) {install.packages("geosphere"); library("geosphere")}
 if (!require("dismo")) {install.packages("dismo"); library("dismo")}
-if (!require("rgeos")) {install.packages("rgeos"); library("rgeos")}
-if (!require("kohonen")) {install.packages("kohonen"); library("kohonen")}
+#if (!require("rgeos")) {install.packages("rgeos"); library("rgeos")}
+#if (!require("kohonen")) {install.packages("kohonen"); library("kohonen")}
 if (!require("dplyr")) {install.packages("dplyr"); library("dplyr")}
-if (!require("beepr")) {install.packages("beepr"); library("beepr")}
+#if (!require("beepr")) {install.packages("beepr"); library("beepr")}
 #if (!require("tcltk")) {install.packages("tcltk"); library("tcltk")}
 #if (!require("sf")) {install.packages("sf"); library("sf")}
 if (!require("spatialEco")) {install.packages("spatialEco");library("spatialEco")}

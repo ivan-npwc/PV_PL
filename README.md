@@ -4,6 +4,10 @@
 
 The LRG (Phoca largha and Phoca vitulina) processing pipeline is a specialized system designed to analyze drone imagery and 3D scans of seal populations in a marine environment. The system combines computer vision, deep learning, and 3D modeling techniques to detect, segment, and measure individual seals for ecological research and population monitoring. The primary objectives of the pipeline include automated seal detection in aerial imagery, 3D reconstruction of seal bodies from point cloud data, volume estimation, and geospatial mapping of seal distributions.
 
+3D morphometry of seals (2026)
+
+Seals are measured in the photogrammetric meshes under the detector outlines by three implementations: HF1 (seal3d.py), HF2 (LRG_3d_Measurements_v2.r with FUNCTIONS_SEAL_3D_MEASUREMENTS_v2.r) and a closed body CB (seal_close.py); HF2 and CB work on the wide mesh crops of LRG_3d_CROP_wide.py. These are the versions used in Usatov et al., "Success factors of three-dimensional reconstruction of harbor seals (Phoca vitulina) from UAV orthophoto surveys of haulouts" (PLOS ONE, submitted). Steps, method, vertical scale of the models and requirements: [Modules/LRG/README_3D_morphometry.md](Modules/LRG/README_3D_morphometry.md).
+
 Core Components
 
 1. Image Processing Module
@@ -39,7 +43,7 @@ Functions to transform between pixel coordinates, UTM Zone 10N (the default CRS 
 
 
 Workflow Input Requirements
-1.Drone Imagery: High-resolution orthophotos in JPEG format.
+1.Drone Imagery: High-resolution orthomosaics in JPEG format.
 2. 3D Point Clouds: .ply files generated from photogrammetry software (e.g., Agisoft Metashape).
 3. Geospatial Boundaries: KML files defining survey areas or regions of interest.
 4. Metadata: UTM Zone 10N projection parameters, sensor calibration data.

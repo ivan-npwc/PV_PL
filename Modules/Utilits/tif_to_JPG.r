@@ -2,6 +2,10 @@
 library(EBImage)
 library(tiff)
 
+#labelInput=  "C:\\Users\\usato\\SSL_UI\\PV_UI\\2023_H0068C_OPP\\20230720_111049\\20230720_111049_MINI2_20m"
+outputDir = file.path(labelInput, "Predict", "SealCrop")
+lstimgs=list.files(outputDir, full.names=T)
+
  for (d in 1:length(lstimgs)){
      pth =  lstimgs[d]
 
@@ -18,3 +22,5 @@ library(tiff)
      writeImage(img_rgb, newName, quality = 100, type = "jpeg")
      img=NULL
      }
+
+unlink(lstimgs, recursive=T)

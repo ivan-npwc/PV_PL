@@ -1,0 +1,127 @@
+if (!require("reticulate")) install.packages("reticulate")
+if (!require("tensorflow")) install.packages("tensorflow")
+
+library(reticulate)
+library(tensorflow)
+
+
+# ---- Конфигурация (измените пути!) ----
+setwd( "C:\\Users\\usato\\Documents\\YandexDisk\\System_data_LRG")
+tensorflow_gpu_pth = "Instalation\\tensorflow_gpu-2.10.0-cp39-cp39-win_amd64.whl"
+cuda_exe <- "Instalation\\cuda_11.8.0_522.06_windows.exe"  # Локальный путь к CUDA
+cudnn_zip_path <- "Instalation\\cudnn-windows-x86_64-8.6.0.163_cuda11-archive.zip"  # Локальный путь к cuDNN
+cuda_install_dir <- "NVIDIA GPU Computing Toolkit\\CUDA\\v11.8"  # Куда установить CUDA
+#############################################################################################################
+# ---- Функции ----
+install_cuda_from_local <- function() {
+  if (!file.exists(cuda_installer_path)) {
+    stop(paste("Файл CUDA не найден по пути:", cuda_installer_path))
+  }
+
+  if (!dir.exists(cuda_install_dir)) {
+     dir.create("NVIDIA GPU Computing Toolkit")
+	 dir.create("NVIDIA GPU Computing Toolkit\\CUDA")
+    dir.create(cuda_install_dir)
+  }
+
+
+  # Команда для тихой установки в пользовательскую папку
+  install_cmd <- sprintf(
+    '"%s" -s nvcc_11.8 cudart_11.8 cublas_dev_11.8 --installpath="%s"',
+    cuda_exe,
+    cuda_install_dir
+  )
+  
+  message("⚙️ Установка CUDA в: ", cuda_install_dir)
+  system(install_cmd)
+}
+######################################################################
+
+install_cudnn_from_local <- function() {
+  if (!file.exists(cudnn_zip_path)) {
+    stop(paste("Архив cuDNN не найден по пути:", cudnn_zip_path))
+  }
+  
+  
+  
+  message("⚙️ Распаковка cuDNN...")
+  unzip(cudnn_zip_path, exdir = cuda_install_dir)
+  
+  # Добавляем CUDA в PATH
+  cudnn_unpack_dir <- file.path(cuda_install_dir, "cudnn")
+  
+ Sys.setenv(
+  CUDA_PATH = cuda_install_dir,
+  PATH = paste0(
+    file.path(cuda_install_dir, "bin"), ";",
+    file.path(cuda_install_dir, "libnvvp"), ";",
+    Sys.getenv("PATH")
+  )
+)
+}
+##############################################################################
+check_nvidia_driver <- function() {
+  message("🔍 Проверка драйвера NVIDIA...")
+  tryCatch({
+    driver_version <- system("nvidia-smi --query-gpu=driver_version --format=csv,noheader", intern = TRUE)
+    if (length(driver_version) > 0) {
+      message("✅ Драйвер NVIDIA обнаружен: ", driver_version)
+      return(TRUE)
+    } else {
+      message("❌ Драйвер NVIDIA не найден! Установите его вручную.")
+      return(FALSE)
+    }
+  }, error = function(e) {
+    message("❌ Ошибка: ", e$message)
+    return(FALSE)
+  })
+}
+
+
+
+###############################################################################
+check_gpu <- function() {
+  tryCatch({
+    gpus <- tf$config$list_physical_devices("GPU")
+    if (length(gpus) > 0) {
+      message("✅ GPU обнаружена: ", gpus[[1]]$name)
+      return(TRUE)
+    }
+    message("❌ GPU не обнаружена")
+    return(FALSE)
+  }, error = function(e) {
+    message("❌ Ошибка проверки GPU: ", e$message)
+    return(FALSE)
+  })
+}
+#########################################################################
+# 1. Проверка драйвера NVIDIA
+  if (!check_nvidia_driver()) { stop("Установите драйвер NVIDIA вручную: https://www.nvidia.com/Download/index.aspx")}
+  
+  # 1. Установка CUDA и cuDNN
+  install_cuda_from_local()
+  install_cudnn_from_local()
+  
+  system("nvcc --version") 
+  
+  # 2. Настройка Python
+  if (!file.exists(miniconda_path())) install_miniconda()
+  
+  env_name <- "tf_gpu_env"
+  if (!env_exists(env_name)) {
+    conda_create(env_name, python_version = "3.9")
+  }
+  
+  use_condaenv(env_name, required = TRUE)
+  
+  # 3. Установка TensorFlow
+  message("⚙️ Установка TensorFlow-GPU 2.10...")
+  py_install("numpy==1.24.4")
+  py_install(tensorflow_gpu_pth, pip = TRUE)
+  py_install("keras==2.10.0", pip = TRUE) 
+ 
+  
+  # 4. Проверка
+  message("🔍 Проверка GPU...")
+  check_gpu()
+  

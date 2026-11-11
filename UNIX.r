@@ -8,7 +8,7 @@
   library(tools)
   library(doMC) 
   library(EBImage)
-  library(keras)
+  library(keras3)
   library(parallel)
   
   
@@ -24,45 +24,46 @@
   
 
   
-PVdir = "/mnt/adata8tb/PV_DB"
+PVdir = "/mnt/c/Users/usato/SSL_UI/PV_UI"
+#PVdir = "C:\\Users\\usato\\SSL_UI\\PV_UI"
+ #PVdir ="C:\\Users\\usato\\SSL_UI\\PL_DB"
+ #PVdir = "/mnt/c/Users/usato/SSL_UI/PL_DB"
+
 logpth =  file.path(PVdir,"log.csv")
 if (file.exists(logpth)==F) {a= data.frame(opp="", action="", fun="",dtime=""); write.csv(a,logpth, row.names=F)}
 log1 =read.csv(logpth)
 
 
-lstopp = list.files(PVdir, recursive=T, pattern="psx", full.names=T)
+lstopp = list.files(PVdir, recursive=T, pattern="Model_no_water.psx", full.names=T)
 lstDirInput = unique(sapply(lstopp, dirname))
 length(lstDirInput)
 
 #######################
 
-
-for (ig in 1:length(lstDirInput)){
+for (ig in 1:length(lstDirInput)){  
 
   labelInput = lstDirInput[ig]
    bsname=basename(labelInput)
-  print(labelInput)
+   print(labelInput)
 
-  check = length(list.files(file.path(labelInput,"Aerial_Images_For_Model")))
-   if (check==0) next
+  check = length(list.files(file.path(labelInput,"Polygons"), pattern="kml", recursive=T))
+   if (check < 1 ) next
+   
+ 
 
- outputDir = file.path(labelInput, "Predict", "SealCrop")
- lstimgs = list.files(outputDir, full.names=T, pattern="tif")
- if (length(lstimgs)==0) next
-
-
-
-   row1=data.frame(opp=labelInput, action="start",fun = "LRG_PredsToPolygons", dtime=format(Sys.time(), "%Y%m%d %H%M%S"))
+   row1=data.frame(opp=labelInput, action="start",fun = "LRG_PredsToPolygons_level_2", dtime=format(Sys.time(), "%Y%m%d %H%M%S"))
    log1=rbind(row1,log1)
    write.csv(log1,logpth, row.names=F)
-
-  source("/home/ivan/GIT_HUB/PV_PL/Modules/DeepLabV3/LRG_PREDICT_deeplabv3_level_2.r")
-
-   row1=data.frame(opp=labelInput, action="stop",fun = "LRG_PredsToPolygons", dtime=format(Sys.time(), "%Y%m%d %H%M%S"))
+   ################
+  
+source("/mnt/c/Users/usato/SSL_UI/GIT/PV_PL/Modules/LRG/LRG_2d_Measurements.r")
+ 
+  #################
+   row1=data.frame(opp=labelInput, action="stop",fun = "LRG_PredsToPolygons_level_2", dtime=format(Sys.time(), "%Y%m%d %H%M%S"))
    log1=rbind(row1,log1)
    write.csv(log1,logpth, row.names=F)
   }
-
+############################################################
 
 
 
@@ -71,18 +72,24 @@ for (ig in 1:length(lstDirInput)){
    source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/Agisoft_create_OPP.r")
   source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/Agisoft_export_OPP.r")
   source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/Agisoft_export_model.r")
-   source("/home/ivan/GIT_HUB/PV_PL/Modules/Unzip.R")
-   source("/home/ivan/GIT_HUB/PV_PL/Modules/KMLprepare.R")
-   source("/home/ivan/GIT_HUB/PV_PL/Modules/Image_prepare.R")
+  
+   source("C:\\Users\\usato\\SSL_UI\\GIT\\PV_PL\\Modules/Unzip.R")
+   source("C:\\Users\\usato\\SSL_UI\\GIT\\PV_PL\\Modules/KMLprepare.R")
+   source("C:\\Users\\usato\\SSL_UI\\GIT\\PV_PL\\Modules/Image_prepare.R")
    #neeed restart
-   source("/home/ivan/GIT_HUB/PV_PL/Modules/DeepLabV3/LRG_PREDICT_deeplabv3.r")
-  source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/LRG_PredsToPolygons.r")
-  source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/LRG_3d_CROP.r")
+    source("/mnt/c/Users/usato/SSL_UI/GIT/PV_PL/Modules/DeepLabV3/PREDICT_deeplabv3_LEVEL_1_rtx5080.r")
+    source("/mnt/c/Users/usato/SSL_UI/GIT/PV_PL/Modules/LRG/LRG_PredsToPolygons.r")     
+ 
 
-  source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/Agisoft_exportsealcrop_OPP.r")
-  source("/home/ivan/GIT_HUB/PV_PL/Modules/Utilits/tif_to_JPG.r")
-  source("/home/ivan/GIT_HUB/PV_PL/Modules/DeepLabV3/LRG_PREDICT_deeplabv3_level_2.r")
-
+  source("C:\\Users\\usato\\SSL_UI\\GIT\\PV_PL\\Modules\\LRG\\Agisoft_exportsealcrop_OPP.r")
+  
+   source("C:\\Users\\usato\\SSL_UI\\GIT\\PV_PL\\Modules\\Utilits\\tif_to_JPG.r")
+  
+  source("/mnt/c/Users/usato/SSL_UI/GIT/PV_PL/Modules/DeepLabV3/PREDICT_deeplabv3_level_2_rtx5080.r")
+ source("/mnt/c/Users/usato/SSL_UI/GIT/PV_PL/Modules/LRG/LRG_PredsToPolygons_level_2.r")
+ source("/mnt/c/Users/usato/SSL_UI/GIT/PV_PL/Modules/LRG/LRG_2d_Measurements.r")
+ 
+ #source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/LRG_3d_CROP.r")
  # source("/home/ivan/GIT_HUB/PV_PL/Modules/LRG/LRG_3d_Measurements.r") IT WORKS GOOD ONLY ON WINDOWS
 
 }

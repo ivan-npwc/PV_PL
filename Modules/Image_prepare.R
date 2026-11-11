@@ -1,5 +1,5 @@
      
-	
+	# source("C:\\Users\\usato\\SSL_UI\\GIT\\PV_PL\\Modules/Image_prepare.R")
 	 library(magick)
 	 library(parallel)
 	 library(doParallel)
@@ -15,6 +15,7 @@
      Tpth = file.path(labelInput, paste0( date1, ".csv"))
 	 PredPolDir=file.path(labelInput, "Polygons", "Predict")
 	 PredPolPth=list.files(PredPolDir, pattern="kml|shp", full.names=T)[1]
+	  if (is.na(PredPolPth)==T) {stop("No pred Pol")}
 	 KMLdir <- file.path(labelInput, date1)
 	 
 if (dir.exists(KMLdir) == F) {stop("No kml OPP found")}  	 
@@ -87,7 +88,7 @@ if (dir.exists(KMLdir) == F) {stop("No kml OPP found")}
   
 	  selectRow <- table[table$imgName == NeedMore1[i],]
       path=    file.path(KMLdir,strsplit(selectRow$imgName,"_")[[1]][1],strsplit(selectRow$imgName,"_")[[1]][2])
-	  CheckExists =	 file.path(SaveDir, basename(selectRow$imgName))
+	  CheckExists =	 unique(file.path(SaveDir, basename(selectRow$imgName)))
 
     #  if(file.exists(CheckExists)==F & file.exists(path)) {                                                                   
         img=image_read(path)  

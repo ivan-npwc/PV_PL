@@ -4,7 +4,7 @@
 	library(sf) 
     ####################################3
     library(reticulate)
-   # labelInput = "/media/ivan/pv/PV_DB/2023_H0052A_OPP/20230518_104633/20230518_104633_MINI2_20m"
+ # labelInput="C:\\Users\\usato\\SSL_UI\\PV_UI\\2024_H0060_OPP\\20240918_100912\\20240918_100912_M3T_20M"
 	bsname=basename(labelInput)
 
     py_pth_win =  "C:\\Users\\usato\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe"

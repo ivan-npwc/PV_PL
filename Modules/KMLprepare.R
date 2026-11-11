@@ -6,7 +6,7 @@
 	library(raster)
 	library(dplyr)
   
-	#labelInput = "D:\\PV_DB\\2023_H0052A_OPP\\20230518_104633\\20230518_104633_MINI2_20m" #"D:\\PV_DB\\2023_H0054_OPP\\20230503_082013\\20230503_082013_MINI3PRO_20m_DUMMY"
+	#labelInput="C:\\Users\\usato\\SSL_UI\\PV_UI\\2024_H0060_OPP\\20240918_100912\\20240918_100912_M3T_20M"
 	date1=substr(basename(labelInput),1,15)
 	pth_table=file.path(labelInput, paste0(date1,".csv"))
     KMLdir<<-file.path(labelInput, date1)
@@ -58,9 +58,16 @@ GetTableKml_Dir=function(KMLdir) {
     minT= substr(TilesTable$image[TilesTable$tileSize==min(TilesTable$tileSize)][1],0,1)
     TilesTable$lvl= substr(TilesTable$image,0,1)
     out3=TilesTable[TilesTable$lvl== minT,]
-	out3$bs_subdir=basename(out3$subdir)
-	out4=data.frame(west=out3$west,  east =out3$east,   south=out3$south,    north =out3$north,     image= paste0(out3$bs_subdir,"_", out3$image))
 	
+	
+	if (is.null(out3$subdir)==F){
+	                out3$bs_subdir=basename(out3$subdir)      
+	                out4=data.frame(west=out3$west,  east =out3$east,   south=out3$south,    north =out3$north,     image=paste0(out3$bs_subdir,"_", out3$image))
+	                }
+	if (is.null(out3$subdir)==T){ 
+	                out4=data.frame(west=out3$west,  east =out3$east,   south=out3$south,    north =out3$north,     image= out3$image)
+	                }
+					
    #########   PIXEL SIZE
  #  x = 3.221493e-08
  #  y = 1.751848e-08

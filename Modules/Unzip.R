@@ -1,4 +1,6 @@
 
+#labelInput="C:\\Users\\usato\\SSL_UI\\PV_UI\\2024_H0060_OPP\\20240918_100912\\20240918_100912_M3T_20M"
+
  date_time=substr(basename(labelInput),1,15)
  
  from=  file.path(labelInput, paste0(date_time,".kmz"))
